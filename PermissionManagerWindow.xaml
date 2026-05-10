@@ -1,0 +1,405 @@
+<Window x:Class="ClaudeSessionsSidekick.PermissionManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Permission Manager"
+        Width="900" Height="680"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E2E"
+        KeyDown="Window_KeyDown">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="CaretBrush" Value="#E0E0E0"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#3A3A5A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <Border x:Name="Bd" Background="#3A3A5A"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}" CornerRadius="2">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#2A2A3A"/>
+                                <Setter Property="Foreground" Value="#555566"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#35354A"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A4A6A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- Dark scrollbar -->
+        <Style x:Key="DarkThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border CornerRadius="4" Background="#404060" Margin="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Border Background="#1A1A2A" CornerRadius="5">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="10"/>
+                    <Setter Property="Width" Value="Auto"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- System color overrides -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2A2A3A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3A3A6A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#303050"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#E0E0E0"/>
+
+        <!-- Dark ComboBox -->
+        <ControlTemplate x:Key="DarkComboToggle" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="18"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" Background="#2A2A3A"
+                        BorderBrush="#40606080" BorderThickness="1" CornerRadius="2"/>
+                <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 4 4 L 8 0 Z" Fill="#888899"/>
+            </Grid>
+        </ControlTemplate>
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Template="{StaticResource DarkComboToggle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="6,3,20,3" VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" TextBlock.Foreground="#E0E0E0"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Grid x:Name="DropDown" SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border Background="#2A2A3A" BorderBrush="#40606080" BorderThickness="1"/>
+                                    <ScrollViewer Margin="1" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Permission Manager" FontSize="15" FontWeight="Bold"
+                       Foreground="#A0B0FF" VerticalAlignment="Center"/>
+            <TextBlock x:Name="txtStatus" Foreground="#888899" FontSize="12"
+                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        </DockPanel>
+
+        <!-- Scope picker + presets -->
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Scope:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox x:Name="cmbScope" Width="380" Style="{StaticResource DarkCombo}"
+                          SelectionChanged="CmbScope_SelectionChanged"
+                          ToolTip="Pick which Claude Code settings.json to edit"/>
+            </StackPanel>
+
+            <TextBlock Grid.Column="1" x:Name="txtFilePath" Foreground="#666677" FontSize="11"
+                       VerticalAlignment="Center" Margin="14,0,14,0"
+                       TextTrimming="CharacterEllipsis"
+                       Cursor="Hand"
+                       MouseLeftButtonUp="TxtFilePath_Click"
+                       ToolTip="Click to open this file in your default editor">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="#666677"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#A0B0FF"/>
+                                <Setter Property="TextDecorations" Value="Underline"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid Margin="0,0,8,0">
+                    <TextBox x:Name="txtFilter" Width="150"
+                             Background="#2A2A3A" Foreground="#E0E0E0" BorderBrush="#40606080"
+                             Padding="6,3" FontSize="12" VerticalContentAlignment="Center"
+                             TextChanged="TxtFilter_TextChanged"
+                             ToolTip="Filter rules by tool, pattern, or scope"/>
+                    <TextBlock Text="Filter..." IsHitTestVisible="False"
+                               Foreground="#606070" FontSize="12" Margin="9,4,0,0"
+                               VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=txtFilter}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+                <Button Content="Generalize All" Click="BtnGeneralizeAll_Click"
+                        ToolTip="Find all overly-specific Bash rules and widen them in one go.&#x0a;e.g. 'npm install foo' → 'npm *'"/>
+                <Button x:Name="btnPresets" Content="Apply Preset &#x25BC;" Click="BtnPresets_Click"
+                        Margin="6,0,0,0"
+                        ToolTip="Add a curated bundle of permission rules"/>
+                <Button Content="Reload" Click="BtnReload_Click" Margin="6,0,0,0"
+                        ToolTip="Discard unsaved changes and reload from disk"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Rules grid -->
+        <DataGrid x:Name="dgRules" Grid.Row="2"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  Background="#252535" Foreground="#E0E0E0"
+                  BorderBrush="#40606080" BorderThickness="1"
+                  RowBackground="#252535" AlternatingRowBackground="#2A2A40"
+                  GridLinesVisibility="None"
+                  HeadersVisibility="Column"
+                  SelectionMode="Single"
+                  CanUserSortColumns="True"
+                  PreviewKeyDown="DgRules_PreviewKeyDown">
+
+            <DataGrid.Resources>
+                <Style TargetType="ScrollBar">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Width" Value="10"/>
+                </Style>
+            </DataGrid.Resources>
+
+            <DataGrid.ContextMenu>
+                <ContextMenu Background="#2A2A3A" BorderBrush="#40606080" Foreground="#E0E0E0">
+                    <MenuItem Header="Move to Allow" Click="MenuMove_Click" Tag="Allow"/>
+                    <MenuItem Header="Move to Deny" Click="MenuMove_Click" Tag="Deny"/>
+                    <MenuItem Header="Move to Ask" Click="MenuMove_Click" Tag="Ask"/>
+                    <Separator/>
+                    <MenuItem Header="Generalize Pattern" Click="MenuGeneralize_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Delete Rule" Click="MenuDelete_Click" Foreground="#E08080"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#1E1E2E"/>
+                    <Setter Property="Foreground" Value="#A0B0FF"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="FontSize" Value="12"/>
+                    <Setter Property="Padding" Value="8,5"/>
+                    <Setter Property="BorderBrush" Value="#40606080"/>
+                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="6,4"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </DataGrid.CellStyle>
+
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background" Value="#252535"/>
+                    <Setter Property="Foreground" Value="#E0E0E0"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#3A3A6A"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#303050"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Width="24" CanUserResize="False" SortMemberPath="WarningSort">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="!" ToolTip="Redundancy / warning indicator"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding WarningIcon}" Foreground="#E8A030"
+                                       HorizontalAlignment="Center" FontSize="14"
+                                       ToolTip="{Binding WarningTooltip}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="Tool" Binding="{Binding Tool}" Width="110" SortMemberPath="Tool"/>
+                <DataGridTextColumn Header="Pattern" Binding="{Binding PatternDisplay}" Width="*" SortMemberPath="PatternDisplay"/>
+                <DataGridTextColumn Header="Scope" Binding="{Binding ScopeDisplay}" Width="80" SortMemberPath="ScopeDisplay"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Additional directories -->
+        <Border Grid.Row="3" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                CornerRadius="4" Padding="10,8" Margin="0,8,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <DockPanel Grid.Row="0" Margin="0,0,0,4">
+                    <TextBlock Text="Additional directories" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Foreground="#666677" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"
+                               Text="(extra paths Claude can read outside the project root - one per line, glob ** allowed)"/>
+                </DockPanel>
+                <TextBox Grid.Row="1" x:Name="txtAdditionalDirs"
+                         AcceptsReturn="True" TextWrapping="NoWrap"
+                         FontFamily="Consolas" FontSize="11"
+                         Height="56"
+                         VerticalScrollBarVisibility="Auto"
+                         TextChanged="TxtAdditionalDirs_TextChanged"
+                         ToolTip="One path per line. e.g.&#x0a;D:\Projects\**&#x0a;C:\Users\me\shared"/>
+            </Grid>
+        </Border>
+
+        <!-- Add new rule form -->
+        <Border Grid.Row="4" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                CornerRadius="4" Padding="10,8" Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="Add rule:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+
+                <ComboBox x:Name="cmbNewTool" Grid.Column="1" Width="100" Style="{StaticResource DarkCombo}"
+                          ToolTip="Tool name (Bash, Read, Edit, Write, WebFetch, Agent, mcp__server, ...)"/>
+
+                <TextBlock Grid.Column="2" Text="(" VerticalAlignment="Center" Margin="2,0"/>
+                <TextBox x:Name="txtNewPattern" Grid.Column="3" Margin="0,0,2,0"
+                         VerticalContentAlignment="Center"
+                         ToolTip="Pattern. Bash: 'npm run *' (note space before *). Read/Edit: gitignore-style globs. Leave empty for match-all."/>
+
+                <ComboBox x:Name="cmbNewScope" Grid.Column="4" Width="80" Margin="6,0,0,0"
+                          Style="{StaticResource DarkCombo}"/>
+
+                <Button Grid.Column="5" Content="Add" Click="BtnAddRule_Click"
+                        Margin="8,0,0,0" Padding="14,4" FontWeight="SemiBold"/>
+            </Grid>
+        </Border>
+
+        <!-- Footer hint -->
+        <TextBlock Grid.Row="5" Margin="0,8,0,0" Foreground="#666677" FontSize="11"
+                   TextWrapping="Wrap">
+            <Run Text="Tip: in Bash patterns, the space before * matters. "/>
+            <Run Text="'npm run *'" FontFamily="Consolas" Foreground="#888899"/>
+            <Run Text=" matches any 'npm run X' but not 'npm install'. Right-click a row for Generalize / Move / Delete."/>
+        </TextBlock>
+
+        <!-- Save / Cancel -->
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Cancel" Click="BtnCancel_Click" Padding="16,5"/>
+            <Button x:Name="btnSave" Content="Save" Click="BtnSave_Click" Padding="20,5"
+                    Margin="8,0,0,0" FontWeight="SemiBold" IsEnabled="False"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,693 @@
+<Window x:Class="ClaudeSessionsSidekick.AgentsSkillsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:markdig="clr-namespace:Markdig.Wpf;assembly=Markdig.Wpf"
+        Title="Agents &amp; Skills"
+        Width="1000" Height="700"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E2E"
+        KeyDown="Window_KeyDown">
+
+    <Window.Resources>
+        <!-- Dark theme for Markdig.Wpf FlowDocument rendering -->
+        <Style TargetType="FlowDocument" x:Key="{x:Static markdig:Styles.DocumentStyleKey}">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style TargetType="Paragraph" x:Key="{x:Static markdig:Styles.Heading1StyleKey}">
+            <Setter Property="Foreground" Value="#A0B0FF"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,8,0,6"/>
+        </Style>
+        <Style TargetType="Paragraph" x:Key="{x:Static markdig:Styles.Heading2StyleKey}">
+            <Setter Property="Foreground" Value="#A0B0FF"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,8,0,4"/>
+        </Style>
+        <Style TargetType="Paragraph" x:Key="{x:Static markdig:Styles.Heading3StyleKey}">
+            <Setter Property="Foreground" Value="#B0C0FF"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,6,0,4"/>
+        </Style>
+        <Style TargetType="Paragraph" x:Key="{x:Static markdig:Styles.CodeBlockStyleKey}">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#C0D0C0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+        <Style TargetType="Run" x:Key="{x:Static markdig:Styles.CodeStyleKey}">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#C0D0C0"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style TargetType="Hyperlink" x:Key="{x:Static markdig:Styles.HyperlinkStyleKey}">
+            <Setter Property="Foreground" Value="#6FAAEF"/>
+        </Style>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="CaretBrush" Value="#E0E0E0"/>
+            <Setter Property="SelectionBrush" Value="#3A3A6A"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#3A3A5A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <Border x:Name="Bd" Background="#3A3A5A"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}" CornerRadius="2">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#2A2A3A"/>
+                                <Setter Property="Foreground" Value="#555566"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#35354A"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A4A6A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- Dark scrollbar -->
+        <Style x:Key="DarkThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border CornerRadius="4" Background="#404060" Margin="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Border Background="#1A1A2A" CornerRadius="5">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="10"/>
+                    <Setter Property="Width" Value="Auto"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- System color overrides -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2A2A3A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3A3A6A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#303050"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#E0E0E0"/>
+
+        <!-- Dark ComboBox -->
+        <ControlTemplate x:Key="DarkComboToggle" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="18"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" Background="#2A2A3A"
+                        BorderBrush="#40606080" BorderThickness="1" CornerRadius="2"/>
+                <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 4 4 L 8 0 Z" Fill="#888899"/>
+            </Grid>
+        </ControlTemplate>
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Template="{StaticResource DarkComboToggle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="6,3,20,3" VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" TextBlock.Foreground="#E0E0E0"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Grid x:Name="DropDown" SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border Background="#2A2A3A" BorderBrush="#40606080" BorderThickness="1"/>
+                                    <ScrollViewer Margin="1" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ListBox item -->
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#3A3A6A"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#303050"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Dark TabControl -->
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="#1E1E2E"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Background" Value="#252535"/>
+            <Setter Property="Foreground" Value="#A0A0B0"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Bd" Background="#252535"
+                                BorderBrush="#40606080" BorderThickness="1,1,1,0"
+                                Margin="0,0,2,0" CornerRadius="3,3,0,0">
+                            <ContentPresenter ContentSource="Header"
+                                              Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3A3A5A"/>
+                                <Setter Property="Foreground" Value="#E0E0E0"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#303050"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Agents &amp; Skills" FontSize="15" FontWeight="Bold"
+                       Foreground="#A0B0FF" VerticalAlignment="Center"/>
+        </DockPanel>
+
+        <TabControl Grid.Row="1" SelectionChanged="TabControl_SelectionChanged">
+
+            <!-- Tab 3: Agents -->
+            <TabItem Header="Agents  (.claude/agents/)"
+                     ToolTip="Custom Claude Code subagents - specialized AI agents with domain expertise.&#x0a;&#x0a;User agents: ~/.claude/agents/ (private, cross-project)&#x0a;Project agents: &lt;project&gt;/.claude/agents/ (committed, team-shared)">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Explainer -->
+                    <TextBlock Grid.Row="0" Foreground="#888899" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10">
+                        Custom subagents that Claude Code can delegate tasks to. Each agent is a .md file
+                        with a name, description, optional tool restrictions, and detailed instructions.
+                        User agents are private (cross-project). Project agents are committed and shared with the team.
+                    </TextBlock>
+
+                    <!-- Scope picker + search -->
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Scope:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox x:Name="cmbAgentScope" Width="380" Style="{StaticResource DarkCombo}"
+                                      SelectionChanged="CmbAgentScope_SelectionChanged"
+                                      ToolTip="User agents = private (~/.claude/agents/)&#x0a;Project agents = shared with team"/>
+                        </StackPanel>
+
+                        <Grid Grid.Column="2">
+                            <TextBox x:Name="txtAgentSearch" Width="180"
+                                     VerticalContentAlignment="Center" Padding="6,3"
+                                     TextChanged="TxtAgentSearch_TextChanged"
+                                     ToolTip="Filter agents by name or description"/>
+                            <TextBlock Text="Search..." IsHitTestVisible="False"
+                                       Foreground="#606070" FontSize="12" Margin="9,4,0,0"
+                                       VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=txtAgentSearch}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <TextBlock Grid.Column="1" x:Name="txtAgentDirPath" Foreground="#666677" FontSize="11"
+                                   VerticalAlignment="Center" Margin="14,0,0,0"
+                                   TextTrimming="CharacterEllipsis"
+                                   Cursor="Hand"
+                                   MouseLeftButtonUp="TxtAgentDirPath_Click"
+                                   ToolTip="Click to open the agents folder in Explorer">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#666677"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="#A0B0FF"/>
+                                            <Setter Property="TextDecorations" Value="Underline"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="280"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: agent list -->
+                        <Grid Grid.Column="0" Margin="0,0,12,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <ListBox x:Name="lstAgents" Grid.Row="0"
+                                     Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                                     SelectionChanged="LstAgents_SelectionChanged"
+                                     ToolTip="Click an agent to preview its definition. Right-click for actions.">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="2,3">
+                                            <DockPanel>
+                                                <TextBlock Text="{Binding LastModifiedDisplay}" FontSize="10"
+                                                           Foreground="#666677" DockPanel.Dock="Right" Margin="4,1,0,0"/>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                           Foreground="#E0E0E0" TextTrimming="CharacterEllipsis"/>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Description}" FontSize="10"
+                                                       Foreground="#888899" Margin="0,2,0,0"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="230"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ContextMenu>
+                                    <ContextMenu Background="#2A2A3A" BorderBrush="#40606080" Foreground="#E0E0E0">
+                                        <MenuItem Header="Open in editor" Click="MenuOpenAgentFile_Click"/>
+                                        <Separator/>
+                                        <MenuItem Header="Delete agent" Click="MenuDeleteAgent_Click" Foreground="#E08080"/>
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
+                            </ListBox>
+
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button x:Name="btnDeleteAgent" Content="Delete" Click="BtnDeleteAgent_Click"
+                                        IsEnabled="False" Foreground="#E08080" Padding="8,4"/>
+                                <Button Content="New Agent" Click="BtnNewAgent_Click"
+                                        Margin="6,0,0,0" Padding="8,4"
+                                        ToolTip="Create a new agent from a starter template"/>
+                                <Button Content="Refresh" Click="BtnRefreshAgents_Click"
+                                        Margin="6,0,0,0" Padding="8,4"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Right: agent preview -->
+                        <Border Grid.Column="1" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                                CornerRadius="4" Padding="12,10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" x:Name="txtAgentName" FontSize="14" FontWeight="Bold"
+                                           Foreground="#A0B0FF" TextWrapping="Wrap"
+                                           Text="Select an agent to preview"/>
+                                <TextBlock Grid.Row="1" x:Name="txtAgentMeta" FontSize="11"
+                                           Foreground="#888899" Margin="0,4,0,0"/>
+                                <TextBlock Grid.Row="2" x:Name="txtAgentDescription" FontSize="11"
+                                           Foreground="#A0A0B0" TextWrapping="Wrap" Margin="0,6,0,8"/>
+                                <DockPanel Grid.Row="3">
+                                    <CheckBox x:Name="chkAgentPreview" DockPanel.Dock="Top"
+                                              Content="Formatted preview" Foreground="#888899" FontSize="11"
+                                              Margin="0,0,0,4" Visibility="Collapsed" Checked="ChkAgentPreview_Changed" Unchecked="ChkAgentPreview_Changed"/>
+                                    <Grid>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <TextBox x:Name="txtAgentBody"
+                                                     IsReadOnly="True" Background="Transparent"
+                                                     BorderThickness="0" Foreground="#E0E0E0"
+                                                     FontFamily="Consolas" FontSize="12"
+                                                     TextWrapping="Wrap" AcceptsReturn="True"/>
+                                        </ScrollViewer>
+                                        <markdig:MarkdownViewer x:Name="mdAgentBody"
+                                                                Visibility="Collapsed"/>
+                                    </Grid>
+                                </DockPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 2: Plugins & Skills -->
+            <TabItem Header="Plugins &amp; Skills"
+                     ToolTip="Browse marketplace plugins and per-project skills.">
+                <Grid Margin="0,12,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Foreground="#888899" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10">
+                        Marketplace plugins bundle skills, commands, and agents from official or team sources.
+                        Project skills are custom SKILL.md files in your project's .claude/skills/ directory.
+                    </TextBlock>
+
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Source:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox x:Name="cmbPluginSource" Width="380" Style="{StaticResource DarkCombo}"
+                                      SelectionChanged="CmbPluginSource_SelectionChanged"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                            <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <ComboBox x:Name="cmbPluginFilter" Width="100" Style="{StaticResource DarkCombo}"
+                                      SelectionChanged="CmbPluginFilter_SelectionChanged"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="2" x:Name="txtPluginDirPath" Foreground="#666677" FontSize="11"
+                                   VerticalAlignment="Center" Margin="14,0,0,0"
+                                   TextTrimming="CharacterEllipsis" Cursor="Hand"
+                                   MouseLeftButtonUp="TxtPluginDirPath_Click"
+                                   ToolTip="Click to open in Explorer">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#666677"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="#A0B0FF"/>
+                                            <Setter Property="TextDecorations" Value="Underline"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="280"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Grid Grid.Column="0" Margin="0,0,12,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <ListBox x:Name="lstPlugins" Grid.Row="0"
+                                     Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                                     SelectionChanged="LstPlugins_SelectionChanged">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="2,3">
+                                            <DockPanel>
+                                                <TextBlock Text="{Binding StatusDisplay}" FontSize="10" FontWeight="Bold"
+                                                           Foreground="#50B050" DockPanel.Dock="Right" Margin="4,1,0,0"/>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                           Foreground="#E0E0E0" TextTrimming="CharacterEllipsis"/>
+                                            </DockPanel>
+                                            <TextBlock Text="{Binding Description}" FontSize="10"
+                                                       Foreground="#888899" Margin="0,2,0,0"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="200"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ContextMenu>
+                                    <ContextMenu Background="#2A2A3A" BorderBrush="#40606080" Foreground="#E0E0E0">
+                                        <MenuItem Header="Toggle install/uninstall" Click="MenuToggleInstall_Click"/>
+                                        <MenuItem Header="Toggle block/unblock" Click="MenuToggleBlock_Click"/>
+                                        <Separator/>
+                                        <MenuItem Header="Open folder in Explorer" Click="MenuOpenPluginFolder_Click"/>
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
+                            </ListBox>
+
+                            <Button Content="Refresh" Click="BtnRefreshPlugins_Click"
+                                    Grid.Row="1" HorizontalAlignment="Left"
+                                    Margin="0,8,0,0" Padding="8,4"/>
+                        </Grid>
+
+                        <Border Grid.Column="1" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                                CornerRadius="4" Padding="12,10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" x:Name="txtPluginName" FontSize="14" FontWeight="Bold"
+                                           Foreground="#A0B0FF" TextWrapping="Wrap"
+                                           Text="Select a plugin or skill to preview"/>
+                                <TextBlock Grid.Row="1" x:Name="txtPluginMeta" FontSize="11"
+                                           Foreground="#888899" Margin="0,4,0,0"/>
+                                <TextBlock Grid.Row="2" x:Name="txtPluginDescription" FontSize="11"
+                                           Foreground="#A0A0B0" TextWrapping="Wrap" Margin="0,6,0,8"/>
+                                <DockPanel Grid.Row="3">
+                                    <CheckBox x:Name="chkPluginPreview" DockPanel.Dock="Top"
+                                              Content="Formatted preview" Foreground="#888899" FontSize="11"
+                                              Margin="0,0,0,4" Visibility="Collapsed" Checked="ChkPluginPreview_Changed" Unchecked="ChkPluginPreview_Changed"/>
+                                    <Grid>
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <TextBox x:Name="txtPluginBody"
+                                                     IsReadOnly="True" Background="Transparent"
+                                                     BorderThickness="0" Foreground="#E0E0E0"
+                                                     FontFamily="Consolas" FontSize="12"
+                                                     TextWrapping="Wrap" AcceptsReturn="True"/>
+                                        </ScrollViewer>
+                                        <markdig:MarkdownViewer x:Name="mdPluginBody"
+                                                                Visibility="Collapsed"/>
+                                    </Grid>
+                                </DockPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 3: MCP Servers -->
+            <TabItem Header="MCP Servers"
+                     ToolTip="MCP (Model Context Protocol) servers extend Claude with external&#x0a;tools and data sources — database queries, CI/CD, wikis, etc.&#x0a;&#x0a;Servers are defined in:&#x0a;  • ~/.claude.json (user-level)&#x0a;  • Installed plugins (.mcp.json)&#x0a;  • Project settings (.claude/settings.json)">
+                <Grid Margin="8,12,8,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Text="Source:" VerticalAlignment="Center" Foreground="#E0E0E0"
+                                   FontSize="12" Margin="0,0,8,0"/>
+                        <ComboBox x:Name="cmbMcpSource" Width="300"
+                                  Style="{StaticResource DarkCombo}"
+                                  SelectionChanged="CmbMcpSource_SelectionChanged"/>
+                        <TextBlock x:Name="txtMcpConfigPath" Foreground="#606070" FontSize="10"
+                                   VerticalAlignment="Center" Margin="12,0,0,0"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+
+                    <Border Grid.Row="1" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                            CornerRadius="4" Padding="0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="2"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Grid Grid.Column="0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <ListBox x:Name="lstMcpServers" Grid.Row="0"
+                                         Background="Transparent" BorderThickness="0"
+                                         SelectionChanged="LstMcpServers_SelectionChanged">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="4,4">
+                                                <DockPanel>
+                                                    <TextBlock Text="{Binding StatusDisplay}" FontSize="10"
+                                                               FontWeight="Bold" Foreground="#E05050"
+                                                               DockPanel.Dock="Right" Margin="4,1,0,0"/>
+                                                    <Border DockPanel.Dock="Right" Background="#303050" CornerRadius="3"
+                                                            Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TypeDisplay}" FontSize="9"
+                                                                   Foreground="#A0B0FF"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                               Foreground="#E0E0E0" TextTrimming="CharacterEllipsis"/>
+                                                </DockPanel>
+                                                <TextBlock Text="{Binding Source}" FontSize="10"
+                                                           Foreground="#888899" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                    <ListBox.ContextMenu>
+                                        <ContextMenu Background="#2A2A3A" BorderBrush="#40606080" Foreground="#E0E0E0">
+                                            <MenuItem Header="Edit..." Click="MenuMcpEdit_Click"/>
+                                            <MenuItem Header="Toggle enable/disable" Click="MenuMcpToggle_Click"/>
+                                            <Separator/>
+                                            <MenuItem Header="Remove" Click="MenuMcpRemove_Click"/>
+                                        </ContextMenu>
+                                    </ListBox.ContextMenu>
+                                </ListBox>
+
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4,6,4,4">
+                                    <Button Content="Add..." Click="BtnMcpAdd_Click" Padding="12,4" Margin="0,0,6,0"
+                                            Background="#3A3A5A" Foreground="#E0E0E0" BorderBrush="#40606080"/>
+                                    <Button x:Name="btnMcpEdit" Content="Edit..." Click="MenuMcpEdit_Click"
+                                            Padding="12,4" Margin="0,0,6,0" IsEnabled="False"
+                                            Background="#3A3A5A" Foreground="#E0E0E0" BorderBrush="#40606080"/>
+                                    <Button x:Name="btnMcpToggle" Content="Disable" Click="MenuMcpToggle_Click"
+                                            Padding="12,4" Margin="0,0,6,0" IsEnabled="False"
+                                            Background="#3A3A5A" Foreground="#E0E0E0" BorderBrush="#40606080"/>
+                                    <Button x:Name="btnMcpRemove" Content="Remove" Click="MenuMcpRemove_Click"
+                                            Padding="12,4" IsEnabled="False"
+                                            Background="#3A3A5A" Foreground="#E0E0E0" BorderBrush="#40606080"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Grid.Column="1" Background="#40606080"/>
+
+                            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                                <StackPanel x:Name="panelMcpDetail" Margin="12,8">
+                                    <TextBlock x:Name="txtMcpName" FontSize="16" FontWeight="Bold"
+                                               Foreground="#A0B0FF" Text="Select an MCP server"/>
+                                    <TextBlock x:Name="txtMcpSource" FontSize="11" Foreground="#888899"
+                                               Margin="0,4,0,0"/>
+                                    <TextBlock x:Name="txtMcpType" FontSize="12" Foreground="#A0A0B0"
+                                               Margin="0,8,0,0"/>
+                                    <TextBlock x:Name="txtMcpEndpoint" FontSize="12" Foreground="#E0E0E0"
+                                               Margin="0,4,0,0" TextWrapping="Wrap"
+                                               FontFamily="Consolas"/>
+                                    <TextBlock x:Name="txtMcpEnvHeader" FontSize="11" Foreground="#888899"
+                                               Margin="0,12,0,4" Visibility="Collapsed"
+                                               Text="Environment variables:"/>
+                                    <TextBox x:Name="txtMcpEnv" FontSize="11" Foreground="#A0A0B0"
+                                             Background="Transparent" BorderThickness="0"
+                                             IsReadOnly="True" FontFamily="Consolas"
+                                             TextWrapping="Wrap" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="txtMcpHeadersHeader" FontSize="11" Foreground="#888899"
+                                               Margin="0,8,0,4" Visibility="Collapsed"
+                                               Text="Headers:"/>
+                                    <TextBox x:Name="txtMcpHeaders" FontSize="11" Foreground="#A0A0B0"
+                                             Background="Transparent" BorderThickness="0"
+                                             IsReadOnly="True" FontFamily="Consolas"
+                                             TextWrapping="Wrap" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="txtMcpHealth" Foreground="#E05050" FontSize="11"
+                                               Margin="0,12,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                                    <TextBlock x:Name="txtMcpConfigFile" FontSize="10" Foreground="#606070"
+                                               Margin="0,16,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <Button Content="Refresh" Click="BtnRefreshMcp_Click"
+                            Grid.Row="2" HorizontalAlignment="Left"
+                            Margin="0,8,0,0" Padding="16,4"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

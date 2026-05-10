@@ -1,0 +1,285 @@
+<Window x:Class="ClaudeSessionsSidekick.PromptLibraryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Prompt Library"
+        Width="680" Height="520"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#1E1E2E"
+        KeyDown="Window_KeyDown">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="CaretBrush" Value="#E0E0E0"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#3A3A5A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <Border x:Name="Bd" Background="#3A3A5A"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}" CornerRadius="2">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#2A2A3A"/>
+                                <Setter Property="Foreground" Value="#555566"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#35354A"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A4A6A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- Dark rounded ScrollBar -->
+        <Style x:Key="DarkThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border CornerRadius="4" Background="#404060" Margin="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Border Background="#1A1A2A" CornerRadius="5">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="10"/>
+                    <Setter Property="Width" Value="Auto"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- System color overrides for ComboBox and ListBox -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2A2A3A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3A3A6A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#303050"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#E0E0E0"/>
+
+        <!-- Dark ComboBox -->
+        <ControlTemplate x:Key="DarkComboToggle" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="18"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" Background="#2A2A3A"
+                        BorderBrush="#40606080" BorderThickness="1" CornerRadius="2"/>
+                <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 4 4 L 8 0 Z" Fill="#888899"/>
+            </Grid>
+        </ControlTemplate>
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Template="{StaticResource DarkComboToggle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="6,3,20,3" VerticalAlignment="Center"
+                                              HorizontalAlignment="Left" TextBlock.Foreground="#E0E0E0"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Grid x:Name="DropDown" SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border Background="#2A2A3A" BorderBrush="#40606080" BorderThickness="1"/>
+                                    <ScrollViewer Margin="1" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark ListBox item -->
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#3A3A6A"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#303050"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left: prompt list -->
+        <Grid Grid.Column="0" Margin="0,0,12,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Prompt Library" FontSize="15" FontWeight="Bold"
+                       Foreground="#A0B0FF" Margin="0,0,0,8"/>
+
+            <!-- Search -->
+            <Grid Grid.Row="1" Margin="0,0,0,6">
+                <TextBox x:Name="txtSearch" Background="#2A2A3A" Foreground="#E0E0E0"
+                         BorderBrush="#40606080" Padding="6,3" FontSize="12"
+                         VerticalContentAlignment="Center"
+                         TextChanged="TxtSearch_TextChanged"/>
+                <TextBlock Text="Search..." IsHitTestVisible="False"
+                           Foreground="#606070" FontSize="12" Margin="9,4,0,0"
+                           VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=txtSearch}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+
+            <!-- Category filter -->
+            <ComboBox x:Name="cmbCategory" Grid.Row="2" Style="{StaticResource DarkCombo}"
+                      Margin="0,0,0,8" SelectionChanged="CmbCategory_SelectionChanged"/>
+
+            <!-- Prompt list -->
+            <ListBox x:Name="lstPrompts" Grid.Row="3" Background="#252535" BorderBrush="#40606080"
+                     BorderThickness="1" SelectionChanged="LstPrompts_SelectionChanged">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="2,2">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#E0E0E0"/>
+                            <TextBlock Text="{Binding Category}" FontSize="10" Foreground="#888899"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Add/Remove buttons -->
+            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
+                <Button Content="New" Click="BtnNew_Click" Padding="10,4" Margin="0,0,6,0"/>
+                <Button x:Name="btnDelete" Content="Delete" Click="BtnDelete_Click" Padding="10,4"
+                        IsEnabled="False" Foreground="#E08080"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Right: edit form -->
+        <Border Grid.Column="1" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                CornerRadius="4" Padding="16,12">
+            <Grid x:Name="editPanel">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Name:" Margin="0,0,0,4"/>
+                <TextBox x:Name="txtName" Grid.Row="1" Margin="0,0,0,8"/>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,4">
+                    <TextBlock Text="Category:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox x:Name="cmbEditCategory" Width="140"
+                             ToolTip="Type a category name (e.g. Code Review, Debugging, General)"/>
+                </StackPanel>
+
+                <TextBox x:Name="txtPrompt" Grid.Row="3" Margin="0,8,0,0"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="12"/>
+
+                <!-- Run in project -->
+                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,10,0,0">
+                    <ComboBox x:Name="cmbProject" Width="160" Style="{StaticResource DarkCombo}"
+                              ToolTip="Select a Quick Launch project to run this prompt in"/>
+                    <Button x:Name="btnRun" Content="Copy &amp; Open Project" Click="BtnRun_Click"
+                            Padding="12,4" Margin="8,0,0,0" IsEnabled="False"
+                            ToolTip="Copy prompt to clipboard and open Claude Code in the selected project.&#x0a;Paste with Ctrl+V in the Claude session."/>
+                    <Button x:Name="btnCopy" Content="Copy" Click="BtnCopy_Click"
+                            Padding="12,4" Margin="8,0,0,0"
+                            ToolTip="Copy prompt text to clipboard"/>
+                </StackPanel>
+
+                <!-- Save -->
+                <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right"
+                            Margin="0,10,0,0">
+                    <Button x:Name="btnSave" Content="Save" Click="BtnSave_Click"
+                            Padding="16,4" FontWeight="SemiBold" IsEnabled="False"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

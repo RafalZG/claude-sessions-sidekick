@@ -1,0 +1,496 @@
+<Window x:Class="ClaudeSessionsSidekick.SessionBrowserWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svc="clr-namespace:ClaudeSessionsSidekick.Services"
+        Title="Claude Sessions"
+        Width="940" Height="530"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E2E"
+        KeyDown="Window_KeyDown">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#3A3A5A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Dark ToolTip style -->
+        <Style TargetType="ToolTip">
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- Dark rounded ScrollBar thumb -->
+        <Style x:Key="DarkThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border CornerRadius="4" Background="#404060" Margin="1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Border Background="#1A1A2A" CornerRadius="5">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="10"/>
+                    <Setter Property="Width" Value="Auto"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Override system colors for ComboBox dropdowns and DataGrid -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2A2A3A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#3A3A6A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#303050"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#E0E0E0"/>
+
+        <!-- Dark ComboBox toggle button -->
+        <ControlTemplate x:Key="DarkComboToggle" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="18"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" Background="#2A2A3A"
+                        BorderBrush="#40606080" BorderThickness="1" CornerRadius="2"/>
+                <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 4 4 L 8 0 Z" Fill="#888899"/>
+            </Grid>
+        </ControlTemplate>
+
+        <!-- Dark ComboBox style -->
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Template="{StaticResource DarkComboToggle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="6,3,20,3"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              TextBlock.Foreground="#E0E0E0"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Grid x:Name="DropDown" SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border x:Name="DropDownBorder" Background="#2A2A3A"
+                                            BorderBrush="#40606080" BorderThickness="1"/>
+                                    <ScrollViewer Margin="1" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Right-click menu for the DataGrid column headers. Shared
+             across all headers via the ColumnHeaderStyle below; events
+             route up to the window code-behind. -->
+        <ContextMenu x:Key="ColumnHeaderMenu"
+                     Background="#2A2A3A" BorderBrush="#40606080" Foreground="#E0E0E0"
+                     Opened="ColumnHeaderContextMenu_Opened">
+            <MenuItem Header="Restore default layout (columns + window size)"
+                      Click="MenuRestoreLayout_Click"/>
+        </ContextMenu>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Session Browser" FontSize="15" FontWeight="Bold"
+                       Foreground="#A0B0FF" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Content="&#x21BB;" Click="BtnRefresh_Click" Padding="4,2" FontSize="13"
+                        ToolTip="Refresh session list" Margin="0,0,10,0"/>
+                <TextBlock x:Name="txtSessionCount" Foreground="#888899" FontSize="12"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Filters -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="Project:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <ComboBox x:Name="cmbProject" Width="200" SelectionChanged="CmbProject_SelectionChanged"
+                      Style="{StaticResource DarkCombo}"/>
+            <TextBlock Text="  Days:" VerticalAlignment="Center" Margin="12,0,6,0"/>
+            <ComboBox x:Name="cmbDays" Width="80" SelectionChanged="CmbDays_SelectionChanged"
+                      Style="{StaticResource DarkCombo}"/>
+            <TextBlock Text="  Color:" VerticalAlignment="Center" Margin="12,0,6,0"/>
+            <ComboBox x:Name="cmbColor" Width="90" SelectionChanged="CmbColor_SelectionChanged"
+                      Style="{StaticResource DarkCombo}"/>
+            <CheckBox x:Name="chkStaleOnly" Content="Stale branches only" Margin="16,0,0,0"
+                      Foreground="#E0E0E0" VerticalAlignment="Center"
+                      Checked="ChkStaleOnly_Changed" Unchecked="ChkStaleOnly_Changed"
+                      ToolTip="Show only sessions whose git branch no longer exists in the repository.&#x0a;These are safe to delete."/>
+            <Grid Margin="16,0,0,0">
+                <TextBox x:Name="txtSearch" Width="180"
+                         Background="#2A2A3A" Foreground="#E0E0E0" BorderBrush="#40606080"
+                         Padding="6,3" FontSize="12" VerticalContentAlignment="Center"
+                         TextChanged="TxtSearch_TextChanged"
+                         ToolTip="Search by topic, project, branch, or note text"/>
+                <TextBlock Text="Search..." IsHitTestVisible="False"
+                           Foreground="#606070" FontSize="12" Margin="9,4,0,0"
+                           VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=txtSearch}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </StackPanel>
+
+        <!-- Content search bar -->
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Content:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <Grid Grid.Column="1">
+                <TextBox x:Name="txtContentSearch"
+                         Background="#2A2A3A" Foreground="#E0E0E0" BorderBrush="#40606080"
+                         Padding="6,3" FontSize="12" VerticalContentAlignment="Center"
+                         KeyDown="TxtContentSearch_KeyDown"
+                         ToolTip="Search inside session conversation text. Press Enter to start, Esc to clear.&#x0a;Scope follows Project + Days filters above."/>
+                <TextBlock x:Name="txtContentSearchPlaceholder"
+                           Text="Search in conversations (Enter to run, Esc to clear)..."
+                           IsHitTestVisible="False"
+                           Foreground="#606070" FontSize="12" Margin="9,4,0,0"
+                           VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=txtContentSearch}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <TextBlock x:Name="txtContentSearchStatus" Grid.Column="2"
+                       Foreground="#888899" FontSize="11" VerticalAlignment="Center"
+                       Margin="10,0,0,0"/>
+            <Button x:Name="btnContentSearchCancel" Grid.Column="3" Content="Cancel"
+                    Click="BtnContentSearchCancel_Click"
+                    Padding="8,3" Margin="6,0,0,0" FontSize="11"
+                    Visibility="Collapsed"/>
+        </Grid>
+
+        <!-- Session list -->
+        <!-- Loading overlay -->
+        <Border x:Name="loadingOverlay" Grid.Row="3" Background="#CC1E1E2E" CornerRadius="4"
+                Visibility="Visible" Panel.ZIndex="1">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="&#x21BB;" FontSize="28" Foreground="#A0B0FF"
+                           HorizontalAlignment="Center" Margin="0,0,0,8">
+                    <TextBlock.RenderTransform>
+                        <RotateTransform x:Name="spinTransform" CenterX="8" CenterY="14"/>
+                    </TextBlock.RenderTransform>
+                    <TextBlock.Triggers>
+                        <EventTrigger RoutedEvent="Loaded">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetName="spinTransform"
+                                                     Storyboard.TargetProperty="Angle"
+                                                     From="0" To="360" Duration="0:0:1"
+                                                     RepeatBehavior="Forever"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </TextBlock.Triggers>
+                </TextBlock>
+                <TextBlock Text="Loading sessions..." Foreground="#888899" FontSize="13"/>
+            </StackPanel>
+        </Border>
+
+        <DataGrid x:Name="dgSessions" Grid.Row="3"
+                  AutoGenerateColumns="False" IsReadOnly="True"
+                  Background="#252535" Foreground="#E0E0E0"
+                  BorderBrush="#40606080" BorderThickness="1"
+                  RowBackground="#252535" AlternatingRowBackground="#2A2A40"
+                  GridLinesVisibility="None"
+                  HeadersVisibility="Column"
+                  SelectionMode="Extended"
+                  CanUserSortColumns="True"
+                  CanUserReorderColumns="True"
+                  CanUserResizeColumns="True"
+                  MouseDoubleClick="DgSessions_MouseDoubleClick">
+
+            <DataGrid.ContextMenu>
+                <ContextMenu Background="#2A2A3A" BorderBrush="#40606080" Foreground="#E0E0E0">
+                    <MenuItem Header="Resume Session" Click="BtnResume_Click"/>
+                    <MenuItem Header="Toggle Favorite" Click="MenuToggleFavorite_Click"/>
+                    <MenuItem Header="Edit Note..." Click="MenuEditNote_Click"/>
+                    <MenuItem Header="Copy Session ID" Click="MenuCopyId_Click"/>
+                    <Separator/>
+                    <MenuItem Header="&#x25CF; Red" Foreground="#E05050" Click="MenuColor_Click" Tag="Red"/>
+                    <MenuItem Header="&#x25CF; Orange" Foreground="#E8A030" Click="MenuColor_Click" Tag="Orange"/>
+                    <MenuItem Header="&#x25CF; Yellow" Foreground="#D0D040" Click="MenuColor_Click" Tag="Yellow"/>
+                    <MenuItem Header="&#x25CF; Green" Foreground="#50B050" Click="MenuColor_Click" Tag="Green"/>
+                    <MenuItem Header="&#x25CF; Blue" Foreground="#5090E0" Click="MenuColor_Click" Tag="Blue"/>
+                    <MenuItem Header="&#x25CF; Purple" Foreground="#A060D0" Click="MenuColor_Click" Tag="Purple"/>
+                    <MenuItem Header="Clear color" Click="MenuColor_Click" Tag=""/>
+                    <Separator/>
+                    <MenuItem Header="Export Session..." Click="MenuExport_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Delete Session" Click="BtnDelete_Click" Foreground="#E08080"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#1E1E2E"/>
+                    <Setter Property="Foreground" Value="#A0B0FF"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="FontSize" Value="12"/>
+                    <Setter Property="Padding" Value="8,5"/>
+                    <Setter Property="BorderBrush" Value="#40606080"/>
+                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                    <Setter Property="ContextMenu" Value="{StaticResource ColumnHeaderMenu}"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="6,4"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </DataGrid.CellStyle>
+
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Width="28" SortMemberPath="IsFavorite" CanUserResize="False"
+                                        svc:DataGridColumnHelper.Key="favorite">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="&#x2605;" ToolTip="Click to toggle favorite.&#x0a;Favorites are shown at the top of the list."
+                                   FontSize="13"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="Transparent" Cursor="Hand"
+                                    MouseLeftButtonDown="Star_Click"
+                                    ToolTip="Click to toggle favorite">
+                                <TextBlock Text="{Binding FavoriteIcon}" HorizontalAlignment="Center"
+                                           FontSize="14" Foreground="{Binding FavoriteForeground}"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="120" SortMemberPath="ProjectName"
+                                        svc:DataGridColumnHelper.Key="project">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="Project" ToolTip="Claude Code project directory"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ProjectName}" Foreground="{Binding ColorForeground}"
+                                       ToolTip="{Binding CwdPath}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="*" SortMemberPath="Topic"
+                                        svc:DataGridColumnHelper.Key="topic">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="Topic" ToolTip="First message in the session - what was the conversation about"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" ToolTip="{Binding TopicFull}">
+                                <TextBlock Text="&#x270E;" Foreground="#A0B0FF" Margin="0,0,4,0"
+                                           FontSize="12" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasNote}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding Topic}" Foreground="{Binding ColorForeground}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="110" SortMemberPath="GitBranch"
+                                        svc:DataGridColumnHelper.Key="branch">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="Branch" ToolTip="Git branch active when the session was last used"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding GitBranch}" Foreground="{Binding ColorForeground}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Binding="{Binding ModelShort}" Width="70"
+                                    svc:DataGridColumnHelper.Key="model">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="Model" ToolTip="Claude model used in this session"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Binding="{Binding LastActiveText}" Width="90"
+                                    SortMemberPath="LastSeen"
+                                    svc:DataGridColumnHelper.Key="lastActive">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="Last Active" ToolTip="When the last message was sent in this session"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Binding="{Binding DurationText}" Width="65"
+                                    SortMemberPath="DurationMinutes"
+                                    svc:DataGridColumnHelper.Key="duration">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="Duration" ToolTip="Active working time - idle gaps longer than 10 minutes are excluded.&#x0a;This estimates how long you actually spent working with Claude in this session."/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Binding="{Binding ContextText}" Width="55"
+                                    SortMemberPath="ContextPct"
+                                    svc:DataGridColumnHelper.Key="context">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="Ctx %" ToolTip="How much of the model's context window was used at the last turn.&#x0a;Higher = more likely to benefit from /compact"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Binding="{Binding TurnCount}" Width="50"
+                                    svc:DataGridColumnHelper.Key="turns">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="Turns" ToolTip="Number of assistant responses in this session.&#x0a;Each turn = one request/response cycle"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Binding="{Binding TokensInText}" Width="70"
+                                    SortMemberPath="TotalIn"
+                                    svc:DataGridColumnHelper.Key="tokensIn">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="In" ToolTip="Total input tokens (input + cache read + cache creation).&#x0a;This is everything Claude reads each turn: code, files, conversation history"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTextColumn Binding="{Binding TokensOutText}" Width="70"
+                                    SortMemberPath="OutputTokens"
+                                    svc:DataGridColumnHelper.Key="tokensOut">
+                    <DataGridTextColumn.Header>
+                        <TextBlock Text="Out" ToolTip="Total output tokens - everything Claude wrote: code, explanations, tool calls"/>
+                    </DataGridTextColumn.Header>
+                </DataGridTextColumn>
+                <DataGridTemplateColumn Width="28" CanUserResize="False"
+                                        svc:DataGridColumnHelper.Key="hint">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="!" ToolTip="Recommendations - hover for details"
+                                   FontSize="12" FontWeight="Bold"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding HintIcon}" HorizontalAlignment="Center"
+                                       FontSize="13" ToolTip="{Binding HintTooltip}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="#888899"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HintIcon}" Value="&#x26A0;">
+                                                <Setter Property="Foreground" Value="#E8A030"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Statistics -->
+        <TextBlock x:Name="txtStats" Grid.Row="4" Foreground="#888899" FontSize="11"
+                   Margin="0,8,0,0"/>
+
+        <!-- Bottom bar -->
+        <DockPanel Grid.Row="5" Margin="0,6,0,0">
+            <TextBlock x:Name="txtHint" Text="Double-click to resume  |  Right-click for more options"
+                       Foreground="#888899" FontSize="11" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Import Session..." Click="BtnImport_Click" Padding="12,5"
+                        Margin="0,0,6,0" ToolTip="Import a shared session ZIP file into a project"/>
+                <Button Content="Delete Selected" Click="BtnDelete_Click" Padding="12,5"
+                        Margin="0,0,6,0" Foreground="#E08080"/>
+                <Button Content="Resume Selected" Click="BtnResume_Click" Padding="12,5"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

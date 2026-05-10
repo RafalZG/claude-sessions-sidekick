@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>ClaudeSessionsSidekick</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Resources\claude.ico</ApplicationIcon>
+    <AssemblyTitle>Claude Sessions Sidekick</AssemblyTitle>
+    <Description>Tray sidekick for Claude Code: live usage tracking + session browser, notes, colors, and quick launchers.</Description>
+    <Authors>Rafał Zygmunt</Authors>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\claude.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="ClaudeSessionsSidekick.Tests\**" />
+    <None Remove="ClaudeSessionsSidekick.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Windows" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Markdig.Wpf" Version="0.5.0.1" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,46 @@
+# Build outputs
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.dll
+*.exe
+*.pdb
+
+# Visual Studio per-user state
+.vs/
+*.user
+*.suo
+*.userprefs
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+
+# Test artifacts
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Local secrets / private state
+*.local.json
+secrets.json
+
+# Logs
+*.log
+
+# Claude Code per-machine settings (if any user adds them later)
+.claude/settings.local.json
