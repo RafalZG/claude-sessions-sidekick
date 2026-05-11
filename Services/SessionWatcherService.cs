@@ -228,6 +228,28 @@ public class SessionWatcherService : IDisposable
                         {
                             session.MaxObservedContext = turnContext;
                         }
+
+                        // Diagnostic: a real Anthropic API prompt cannot exceed the
+                        // model's context window — anything noticeably above 100%
+                        // means our accounting or the upstream usage report is off.
+                        // Latch per session so a long anomalous session doesn't
+                        // spam app.log with one warning per turn.
+                        var contextWindow = session.ContextWindowSize;
+                        if (contextWindow > 0
+                            && turnContext > contextWindow * 1.05
+                            && !session.DiagnosticHighContextLogged)
+                        {
+                            AppLogger.Warn(
+                                $"High-context anomaly: sessionId={sessionId} " +
+                                $"model={session.Model ?? "?"} " +
+                                $"shorthand={session.ConfiguredModelIsShorthand} " +
+                                $"context={turnContext:N0} window={contextWindow:N0} " +
+                                $"(input={turnInput:N0} cacheRead={turnCacheRead:N0} " +
+                                $"cacheCreation={turnCacheCreation:N0}) " +
+                                $"turn={session.TurnCount} " +
+                                $"file={Path.GetFileName(filePath)}");
+                            session.DiagnosticHighContextLogged = true;
+                        }
                     }
                 }
             }

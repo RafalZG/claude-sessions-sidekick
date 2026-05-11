@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc3] — 2026-05-11
+
+Trust-protecting fix for the Session Browser's "Ctx %" column.
+
+### Changed
+- Session Browser: displayed Ctx % is now capped at "100%+" when the raw
+  computed value exceeds the model's documented context window. The Anthropic
+  API enforces prompt size ≤ context window, so any value above 100% means
+  our accounting or the upstream usage report is off — showing a literal
+  "306%" was misleading and undermined trust. The raw value is still used
+  for column sorting and is logged once-per-session for diagnosis.
+
+### Added
+- Diagnostic log entry written to `app.log` the first time a session exceeds
+  its model's context window by >5%. Captures model, configured-vs-shorthand
+  flag, per-bucket token breakdown (input / cache read / cache creation),
+  turn count, and source file. Latched per session so a long anomalous
+  session doesn't flood the log.
+
 ## [1.0.0-rc2] — 2026-05-11
 
 Polish + transparency pass on top of rc1.
@@ -56,6 +75,7 @@ First public release.
 - Exe is unsigned — Cortex XDR / Defender SmartScreen may flag on first launch (SignPath OSS code-signing application in progress)
 - The "Mini Buddy" mood indicator (in-tray emoji reflecting state) was started but is currently shelved; planned for a future release
 
-[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0-rc2...HEAD
+[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0-rc3...HEAD
+[1.0.0-rc3]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc3
 [1.0.0-rc2]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc2
 [1.0.0]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0

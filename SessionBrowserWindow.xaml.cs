@@ -1181,11 +1181,24 @@ public class SessionViewModel
         }
     }
 
+    // Raw percentage — kept uncapped for sorting (so two anomalous sessions sort
+    // by their true magnitude) and for diagnostics. The DISPLAYED value is capped
+    // by ContextText below because a real Anthropic API prompt cannot exceed the
+    // model's context window — anything >100% means our accounting or the upstream
+    // usage report is off, and a misleading literal "306%" damages trust more
+    // than honestly flagging the anomaly.
     public int ContextPct => _data.ContextWindowSize > 0 && _data.LastTurnContextSize > 0
         ? (int)(100.0 * _data.LastTurnContextSize / _data.ContextWindowSize)
         : 0;
 
-    public string ContextText => ContextPct > 0 ? $"{ContextPct}%" : "";
+    public string ContextText
+    {
+        get
+        {
+            if (ContextPct <= 0) return "";
+            return ContextPct > 100 ? "100%+" : $"{ContextPct}%";
+        }
+    }
 
     public double DurationMinutes => _data.ActiveDuration.TotalMinutes;
 

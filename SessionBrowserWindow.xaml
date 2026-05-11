@@ -426,7 +426,7 @@
                                     SortMemberPath="ContextPct"
                                     svc:DataGridColumnHelper.Key="context">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="Ctx %" ToolTip="How much of the model's context window was used at the last turn.&#x0a;Higher = more likely to benefit from /compact"/>
+                        <TextBlock Text="Ctx %" ToolTip="How much of the model's context window was used at the last turn.&#x0a;Higher = more likely to benefit from /compact.&#x0a;&#x0a;&quot;100%+&quot; means our accounting disagrees with what the model's context window should allow — the raw value is logged for diagnosis."/>
                     </DataGridTextColumn.Header>
                 </DataGridTextColumn>
                 <DataGridTextColumn Binding="{Binding TurnCount}" Width="50"

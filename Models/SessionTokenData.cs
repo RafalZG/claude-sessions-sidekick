@@ -38,6 +38,16 @@ public class SessionTokenData
     /// <summary>Context size just before the last auto-compact. Used to infer actual context window.</summary>
     public long? AutoCompactThreshold { get; set; }
 
+    /// <summary>
+    /// Per-session latch so the high-context anomaly warning is logged at most
+    /// once per app run. Not serialised — purely runtime state. The first turn
+    /// that trips the threshold captures full diagnostic context; subsequent
+    /// turns in the same session stay silent to avoid log spam from very long
+    /// anomalous sessions (304 turns × 1 warn each = bad).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool DiagnosticHighContextLogged { get; set; }
+
     /// <summary>Custom name set by user via /rename.</summary>
     public string? CustomName { get; set; }
 
