@@ -26,6 +26,14 @@ public sealed class UpdateService
     /// every update operation is a no-op — guard checks accordingly.</summary>
     public bool IsInstalled => _manager.IsInstalled;
 
+    /// <summary>
+    /// SemVer of the currently-installed build as Velopack sees it (e.g.
+    /// <c>1.0.0-rc2</c>). Empty for non-installed (dev) runs — the caller is
+    /// expected to fall back to assembly version in that case.
+    /// </summary>
+    public string InstalledVersion =>
+        _manager.IsInstalled ? _manager.CurrentVersion?.ToString() ?? "" : "";
+
     /// <summary>Returns null when no newer release is available, the
     /// <see cref="UpdateInfo"/> otherwise. Network failures are logged and
     /// surface as null (caller treats "couldn't check" as "no update").</summary>

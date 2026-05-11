@@ -53,12 +53,16 @@ jobs:
         # Desktop Runtime which is documented in the README. Switch to
         # `--self-contained true -p:PublishSingleFile=true` if we ever decide
         # the runtime install friction outweighs the bundle size.
+        # `-p:Version` ensures the assembly's File/Informational version
+        # matches the git tag (so AboutWindow shows e.g. "1.0.0-rc2" instead
+        # of the csproj fallback "1.0.0").
         run: >
           dotnet publish ClaudeSessionsSidekick.csproj
           --configuration Release
           --runtime win-x64
           --self-contained false
           --output publish
+          -p:Version=${{ steps.version.outputs.version }}
 
       - name: Pack with Velopack
         # `vpk pack` produces:

@@ -76,9 +76,17 @@
         </StackPanel>
 
         <!-- Description -->
-        <TextBlock Grid.Row="1" TextWrapping="Wrap" FontSize="12" Foreground="#C0C0D0"
-                   TextAlignment="Center" Margin="0,0,0,16"
-                   Text="A Windows tray companion for Claude Code that monitors usage limits, tracks token consumption, manages sessions, and helps you work smarter with context-aware recommendations."/>
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#C0C0D0"
+                       TextAlignment="Center"
+                       Text="A Windows tray sidekick for Claude Code: live usage tracking, session browser with notes/colors/favorites, project quick launchers, and a prompt library."/>
+            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#888899"
+                       TextAlignment="Center" Margin="0,8,0,0">
+                <Run Text="Hobby project built using "/><Hyperlink x:Name="lnkVibeCoding"
+                    Foreground="#6EA8FF" TextDecorations="None"
+                    Click="LnkVibeCoding_Click">vibe coding</Hyperlink><Run Text=" with Claude Code — most of the source is AI-assisted."/>
+            </TextBlock>
+        </StackPanel>
 
         <!-- Separator -->
         <Border Grid.Row="2" Height="1" Background="#30606080" Margin="0,0,0,16"/>
@@ -88,22 +96,53 @@
             <TextBlock Text="Links" FontSize="13" FontWeight="SemiBold" Foreground="#A0B0FF"
                        Margin="0,0,0,8"/>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                <TextBlock Text="&#x2B50;" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="lnkGitHub" Text="GitHub Repository" FontSize="12"
+            <!-- Grid keeps icon column at a fixed width so labels line up regardless of
+                 emoji metric variance. Segoe UI Emoji on every icon forces color glyphs;
+                 without it the symbols render in the inherited foreground (dark on dark). -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="&#x2B50;" FontSize="12"
+                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="lnkGitHub" Text="GitHub Repository" FontSize="12"
                            Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
+                           VerticalAlignment="Center" Margin="0,0,0,6"
                            MouseLeftButtonDown="LnkGitHub_Click"
                            ToolTip="View source code, report issues, and contribute"/>
-            </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                <TextBlock Text="&#x1F41B;" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"
-                           FontFamily="Segoe UI Emoji"/>
-                <TextBlock x:Name="lnkIssues" Text="Report a Bug / Request a Feature" FontSize="12"
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="&#x1F41B;" FontSize="12"
+                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="lnkIssues" Text="Report a Bug / Request a Feature" FontSize="12"
                            Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
+                           VerticalAlignment="Center" Margin="0,0,0,6"
                            MouseLeftButtonDown="LnkIssues_Click"
                            ToolTip="Open a GitHub issue to report bugs or suggest new features"/>
-            </StackPanel>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="&#x1F4DD;" FontSize="12"
+                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" x:Name="lnkChangelog" Text="What's new (CHANGELOG)" FontSize="12"
+                           Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
+                           VerticalAlignment="Center" Margin="0,0,0,6"
+                           MouseLeftButtonDown="LnkChangelog_Click"
+                           ToolTip="View release notes for past versions"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="&#x1F4E6;" FontSize="12"
+                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="lnkReleases" Text="All releases" FontSize="12"
+                           Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
+                           VerticalAlignment="Center"
+                           MouseLeftButtonDown="LnkReleases_Click"
+                           ToolTip="Browse all published versions on GitHub"/>
+            </Grid>
 
         </StackPanel>
 
@@ -123,16 +162,11 @@
                        Text="Licensed under MIT License"/>
         </StackPanel>
 
-        <!-- Update check + Close -->
+        <!-- Close -->
         <Grid Grid.Row="6">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
-                <TextBlock x:Name="lnkCheckUpdate" Text="Check for updates" FontSize="11"
-                           Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
-                           MouseLeftButtonDown="LnkCheckUpdate_Click"
-                           ToolTip="Check GitHub for a newer version"/>
-                <TextBlock x:Name="txtUpdateStatus" FontSize="11" Foreground="#888899"
-                           Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
+            <TextBlock FontSize="11" Foreground="#888899" VerticalAlignment="Center"
+                       HorizontalAlignment="Left"
+                       Text="Updates: right-click tray → Check for updates…"/>
             <Button Content="Close" HorizontalAlignment="Right"
                     Padding="24,6" Click="BtnClose_Click"/>
         </Grid>

@@ -6,6 +6,8 @@ A Windows tray widget that complements Claude Code with the things the CLI itsel
 
 **Status:** v1.0.0 — first public release. Tested on Windows 10/11 with .NET 10 runtime.
 
+> **Note:** This is a hobby project built using [vibe coding](https://en.wikipedia.org/wiki/Vibe_coding) with Claude Code — most of the source is AI-assisted. It's been dogfooded by the author for a few months on real workloads, but please treat it as a useful utility rather than production-grade software. Bug reports liberally welcomed via [GitHub Issues](https://github.com/RafalZG/claude-sessions-sidekick/issues).
+
 ## What it does
 
 ### Live usage tracking
