@@ -1,0 +1,87 @@
+name: Release
+
+# Triggered by pushing a version tag like `v1.0.0`. Builds Release, packs
+# into a Velopack release bundle, and uploads everything to a new GitHub
+# Release matching the tag name. Users running prior installed versions
+# will pick this up via the in-app "Check for updates" flow.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # required by `vpk upload github` to create the release
+
+jobs:
+  release:
+    name: Pack & publish release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        # Strip leading "v" so `v1.2.3` becomes `1.2.3` for vpk pack --packVersion.
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Releasing version $version"
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore ClaudeSessionsSidekick.sln
+
+      - name: Test (gate the release)
+        run: dotnet test ClaudeSessionsSidekick.sln --configuration Release --verbosity minimal
+
+      - name: Install Velopack CLI
+        # Pin to the same version as the runtime NuGet package for reproducible
+        # release bundles. Using `tool update` so re-runs of a failed release
+        # job don't error with "tool already installed" from the cached PATH.
+        run: dotnet tool update --global vpk --version 0.0.1298 || dotnet tool install --global vpk --version 0.0.1298
+
+      - name: Publish (Release, win-x64, framework-dependent)
+        # Framework-dependent keeps the bundle small; users need the .NET 10
+        # Desktop Runtime which is documented in the README. Switch to
+        # `--self-contained true -p:PublishSingleFile=true` if we ever decide
+        # the runtime install friction outweighs the bundle size.
+        run: >
+          dotnet publish ClaudeSessionsSidekick.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained false
+          --output publish
+
+      - name: Pack with Velopack
+        # `vpk pack` produces:
+        #   Releases/        <- delta + full nupkg + RELEASES manifest
+        #   Releases/*.exe   <- single-file installer
+        # `vpk upload github` picks these up and attaches them to the release.
+        run: >
+          vpk pack
+          --packId ClaudeSessionsSidekick
+          --packVersion ${{ steps.version.outputs.version }}
+          --packDir publish
+          --mainExe ClaudeSessionsSidekick.exe
+          --packTitle "Claude Sessions Sidekick"
+          --packAuthors "Rafał Zygmunt"
+          --icon Resources/claude.ico
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          vpk upload github
+          --repoUrl https://github.com/RafalZG/claude-sessions-sidekick
+          --publish
+          --releaseName "Claude Sessions Sidekick ${{ steps.version.outputs.version }}"
+          --tag ${{ github.ref_name }}
+          --token $env:GITHUB_TOKEN

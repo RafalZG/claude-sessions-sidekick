@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private readonly ClaudeUsageService _usageService = new();
     private readonly SessionWatcherService _sessionWatcher = new();
     private readonly PermissionWatcherService _permissionWatcher = new();
+    private readonly UpdateService _updateService = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _countdownTimer;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
@@ -109,6 +110,121 @@ public partial class MainWindow : Window
         ApplyViewMode();
         _refreshTimer.Start();
         _countdownTimer.Start();
+
+        // Fire-and-forget update check — delayed so we don't compete with the
+        // initial Claude usage fetch, and silent unless something is available.
+        _ = CheckForUpdatesBackgroundAsync();
+    }
+
+    private readonly System.Threading.CancellationTokenSource _updateCheckCts = new();
+
+    private async Task CheckForUpdatesBackgroundAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), _updateCheckCts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        if (!_updateService.IsInstalled)
+        {
+            // Running from `dotnet run` or a standalone exe — no Velopack
+            // bundle, so updates aren't applicable. Stay silent.
+            return;
+        }
+
+        var update = await _updateService.CheckForUpdatesAsync();
+        if (update == null || _updateCheckCts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        // Window may be closing between the check and the dispatch; skip the
+        // balloon if the dispatcher has started shutting down.
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        await Dispatcher.BeginInvoke(() =>
+        {
+            _trayIcon?.ShowBalloonTip(
+                10_000,
+                "Update available",
+                $"Version {update.TargetFullRelease.Version} is ready. Right-click the tray icon → Check for updates… to install.",
+                System.Windows.Forms.ToolTipIcon.Info);
+        });
+    }
+
+    private async Task CheckForUpdatesInteractiveAsync()
+    {
+        if (!_updateService.IsInstalled)
+        {
+            System.Windows.MessageBox.Show(
+                "Updates are managed via Velopack and only available on builds installed from a release package.\n\n" +
+                "This looks like a development build (run from source). Use the latest release from GitHub instead.",
+                "Updates unavailable",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var update = await _updateService.CheckForUpdatesAsync();
+        if (update == null)
+        {
+            System.Windows.MessageBox.Show(
+                "You're on the latest version.",
+                "No updates",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var go = System.Windows.MessageBox.Show(
+            $"Version {update.TargetFullRelease.Version} is available.\n\nDownload and install now? The app will restart automatically.",
+            "Update available",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (go != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            await _updateService.DownloadUpdatesAsync(update);
+
+            // Belt-and-braces flush before Velopack tears the process down —
+            // anything mutated since the last explicit Save would otherwise
+            // be lost across the restart. Also stop the low-level keyboard
+            // hook so the replacement process's hook registration doesn't
+            // race with a still-alive one.
+            try
+            {
+                SettingsService.Save(_appSettings);
+            }
+            catch (Exception saveEx)
+            {
+                AppLogger.Warn($"Pre-update settings flush failed: {saveEx.Message}");
+            }
+            _keyboardHook?.Dispose();
+            _keyboardHook = null;
+
+            _updateService.ApplyAndRestart(update);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Update install failed", ex);
+            System.Windows.MessageBox.Show(
+                $"Update failed: {ex.Message}\n\nSee the log for details.",
+                "Update failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 
     private void SetupHotkey()
@@ -524,6 +640,7 @@ public partial class MainWindow : Window
         _hotkeyMenuItem.CheckedChanged += (_, _) => SetHotkeyEnabled(_hotkeyMenuItem.Checked);
         menu.Items.Add(_hotkeyMenuItem);
         menu.Items.Add("Settings...", null, (_, _) => OpenSettings());
+        menu.Items.Add("Check for updates...", null, async (_, _) => await CheckForUpdatesInteractiveAsync());
         menu.Items.Add("About...", null, (_, _) => ShowAbout());
 
         // Diagnostic helpers - useful for the user and for bug reports from beta testers
@@ -1728,6 +1845,8 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _updateCheckCts.Cancel();
+        _updateCheckCts.Dispose();
         SystemEvents.SessionSwitch -= OnSessionSwitch;
         _refreshTimer.Stop();
         _countdownTimer.Stop();

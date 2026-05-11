@@ -26,13 +26,14 @@ First public release.
 - Permission Watcher: opt-in suggestions to generalize narrow rules Claude Code adds
 - Prompt Library: stash + one-click "Send to Claude"
 - Claude config browser + MCP server install/block helpers
+- Auto-update via [Velopack](https://github.com/velopack/velopack) — background check on startup, tray balloon notification, one-click install from tray menu
 
 ### Security
 - Strict ASCII-only allow-list + 64-char cap on `--model` override values prevents shell injection from a hand-edited or malicious `settings.json`
 
 ### Known limitations
 - Windows-only (WPF / .NET 10)
-- Exe is unsigned — Cortex XDR / Defender SmartScreen may flag on first launch (signing planned for a post-1.0 release)
+- Exe is unsigned — Cortex XDR / Defender SmartScreen may flag on first launch (SignPath OSS code-signing application in progress)
 - The "Mini Buddy" mood indicator (in-tray emoji reflecting state) was started but is currently shelved; planned for a future release
 
 [Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0...HEAD

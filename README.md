@@ -46,7 +46,11 @@ A Windows tray widget that complements Claude Code with the things the CLI itsel
 3. Double-click the exe; it lives in your tray
 4. (Optional) right-click tray → Settings → Quick Launch to add your projects
 
-The exe is currently **unsigned** — Cortex XDR / Defender SmartScreen may flag on first run. Code signing via SignPath OSS tier is on the post-1.0 roadmap.
+The exe is currently **unsigned** — Cortex XDR / Defender SmartScreen may flag on first run. Code signing via SignPath OSS tier is in progress.
+
+## Updates
+
+The app checks for a new version on startup and shows a tray balloon when one is available. To install: right-click the tray icon → **Check for updates…**. The download + swap + restart is handled automatically (powered by [Velopack](https://github.com/velopack/velopack)).
 
 ## Build from source
 
@@ -89,9 +93,11 @@ The widget piggybacks on your local Claude Code installation. It reads the same 
 
 PRs welcome.
 
-## Security
+## Security & Privacy
 
 Security issues: please report privately via [GitHub Security Advisories](https://github.com/RafalZG/claude-sessions-sidekick/security/advisories/new). See [SECURITY.md](SECURITY.md).
+
+Privacy: the app does not transmit any data to the author or any third party. The only outbound network call is to Anthropic's official Claude Code usage API using your own OAuth token. See [PRIVACY.md](PRIVACY.md) for full details.
 
 ## License
 

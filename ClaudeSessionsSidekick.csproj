@@ -13,7 +13,23 @@
     <Description>Tray sidekick for Claude Code: live usage tracking + session browser, notes, colors, and quick launchers.</Description>
     <Authors>Rafał Zygmunt</Authors>
     <Version>1.0.0</Version>
+    <!-- Tell MSBuild we own the Main entry point so it doesn't auto-generate
+         one from App.xaml's ApplicationDefinition. We need our own Main to
+         call `VelopackApp.Build().Run()` BEFORE Application is constructed —
+         install / firstrun / uninstall / obsolete hooks must fire and
+         Environment.Exit before any WPF resources are touched, otherwise a
+         brief window flash leaks on hook invocations. The companion XAML
+         change below downgrades App.xaml from ApplicationDefinition to Page
+         so the auto-generated Main is suppressed. -->
+    <StartupObject>ClaudeSessionsSidekick.App</StartupObject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App.xaml participates in the build as a regular Page so MSBuild does
+         NOT generate Main() for it; the Main lives in App.xaml.cs instead. -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Resources\claude.ico" />
@@ -31,6 +47,7 @@
 
   <ItemGroup>
     <PackageReference Include="Markdig.Wpf" Version="0.5.0.1" />
+    <PackageReference Include="Velopack" Version="0.0.1298" />
   </ItemGroup>
 
 </Project>

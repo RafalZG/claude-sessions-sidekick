@@ -3,12 +3,27 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using ClaudeSessionsSidekick.Services;
+using Velopack;
 
 namespace ClaudeSessionsSidekick;
 
 public partial class App : Application
 {
     private Mutex? _mutex;
+
+    [System.STAThread]
+    public static void Main(string[] args)
+    {
+        // Velopack hooks (--veloapp-install / firstrun / uninstall / obsolete)
+        // re-launch the process with these args; Build().Run() handles them and
+        // calls Environment.Exit before returning. MUST happen before any WPF
+        // resources are touched — or hook invocations leak a window flash.
+        VelopackApp.Build().Run();
+
+        var app = new App();
+        app.InitializeComponent();
+        app.Run();
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
