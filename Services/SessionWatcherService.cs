@@ -186,6 +186,14 @@ public class SessionWatcherService : IDisposable
                 {
                     session.FirstMessage = ExtractMessageText(root);
                 }
+                // Count REAL user turns (typed prompts), not tool_result returns.
+                // This is the only place TurnCount/TurnTimestamps grow now —
+                // assistant-side counting was inflating ~5-15× because of tool rounds.
+                if (IsUserTypedMessage(root))
+                {
+                    session.TurnCount++;
+                    session.TurnTimestamps.Add(timestamp);
+                }
             }
             else if (type == "assistant")
             {
@@ -208,14 +216,10 @@ public class SessionWatcherService : IDisposable
                         session.CacheReadTokens += turnCacheRead;
                         session.CacheCreationTokens += turnCacheCreation;
 
-                        // Only count as a "turn" if this is a user-facing response
-                        // (has text or thinking content), not a pure tool_use continuation.
-                        // Without this, each Bash/Read/Edit call inflates the turn count ~5x.
-                        if (IsUserFacingResponse(msgProp))
-                        {
-                            session.TurnCount++;
-                            session.TurnTimestamps.Add(timestamp);
-                        }
+                        // Turn counting moved to the type=="user" branch — see
+                        // IsUserTypedMessage docs. Counting per assistant message
+                        // (even with the text/thinking heuristic) inflates by the
+                        // number of tool rounds within a turn (typically 5-15x).
 
                         session.PrevTurnContextSize = session.LastTurnContextSize;
                         var turnContext = turnInput + turnCacheRead + turnCacheCreation;
@@ -321,27 +325,44 @@ public class SessionWatcherService : IDisposable
     /// not just tool_use calls. Used to count meaningful "turns" — a single user question
     /// that triggers 5 tool calls should count as 1 turn, not 6.
     /// </summary>
-    private static bool IsUserFacingResponse(JsonElement msgElement)
+    /// <summary>
+    /// True when a <c>type:"user"</c> JSONL entry represents a real user-typed
+    /// message rather than a tool result returning to the model. The distinction
+    /// matters for turn counting — without it, a single user prompt that
+    /// triggers 10 tool rounds inflates "Turns" by 10× because Claude Code
+    /// records each tool_result + each assistant reply as separate JSONL
+    /// entries with usage data, and each of those previously counted as a
+    /// "turn" via the assistant-side heuristic.
+    /// </summary>
+    private static bool IsUserTypedMessage(JsonElement rootElement)
     {
-        if (!msgElement.TryGetProperty("content", out var content) ||
-            content.ValueKind != JsonValueKind.Array)
+        if (!rootElement.TryGetProperty("message", out var msg))
         {
-            return true; // No content array = count it (safe default)
+            return false;
         }
-
-        foreach (var item in content.EnumerateArray())
+        if (!msg.TryGetProperty("content", out var content))
         {
-            if (item.TryGetProperty("type", out var typeProp))
+            return false;
+        }
+        // Plain string content = user typed (the common case for short prompts).
+        if (content.ValueKind == JsonValueKind.String)
+        {
+            return true;
+        }
+        // Array content — exclude entries containing tool_result items;
+        // a tool_result is the SDK returning data to the model, not a turn.
+        if (content.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in content.EnumerateArray())
             {
-                var t = typeProp.GetString();
-                if (t == "text" || t == "thinking")
+                if (item.TryGetProperty("type", out var t) && t.GetString() == "tool_result")
                 {
-                    return true;
+                    return false;
                 }
             }
+            return true; // text/image items only = user typed (e.g. pasted screenshot)
         }
-
-        return false; // Only tool_use items = not a user-facing turn
+        return false;
     }
 
     private static string ExtractProjectName(string filePath)
@@ -638,6 +659,12 @@ public class SessionWatcherService : IDisposable
                     {
                         session.FirstMessage = ExtractMessageText(root);
                     }
+                    // Real-user-typed messages only (see IsUserTypedMessage).
+                    if (IsUserTypedMessage(root))
+                    {
+                        session.TurnCount++;
+                        session.TurnTimestamps.Add(timestamp);
+                    }
                 }
                 else if (type == "assistant" && root.TryGetProperty("message", out var msgProp))
                 {
@@ -656,11 +683,7 @@ public class SessionWatcherService : IDisposable
                         session.OutputTokens += GetLong(usageProp, "output_tokens");
                         session.CacheReadTokens += tcr;
                         session.CacheCreationTokens += tcc;
-                        if (IsUserFacingResponse(msgProp))
-                        {
-                            session.TurnCount++;
-                            session.TurnTimestamps.Add(timestamp);
-                        }
+                        // Turn count handled in the type=="user" branch above.
                         var ctx = ti + tcr + tcc;
                         session.LastTurnContextSize = ctx;
                         if (ctx > session.MaxObservedContext)

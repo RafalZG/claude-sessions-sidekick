@@ -1290,6 +1290,36 @@ public class SessionViewModel
     public string TokensInText => FormatTokens(TotalIn);
     public string TokensOutText => FormatTokens(OutputTokens);
 
+    /// <summary>
+    /// Tooltip for the "In" column — breaks the lump-sum total into its three
+    /// pricing-relevant buckets. Most of `TotalIn` for any heavy session is
+    /// cache reads (the model re-reading conversation history each turn);
+    /// those bill at roughly 1/10 the rate of fresh input. Showing just the
+    /// total without a breakdown made users think the cost was 10× what it
+    /// actually was.
+    /// </summary>
+    public string TokensInTooltip
+    {
+        get
+        {
+            var fresh = _data.InputTokens;
+            var read = _data.CacheReadTokens;
+            var write = _data.CacheCreationTokens;
+            var total = fresh + read + write;
+            var readPct = total > 0 ? 100.0 * read / total : 0;
+            return
+                $"Total prompt tokens: {FormatTokens(total)}\n" +
+                $"\n" +
+                $"  Fresh input:     {FormatTokens(fresh),10}\n" +
+                $"  Cache reads:     {FormatTokens(read),10}   ({readPct:F0}% of total — billed at ~0.1× rate)\n" +
+                $"  Cache writes:    {FormatTokens(write),10}\n" +
+                $"\n" +
+                $"Cache reads dominate long sessions because Claude re-reads the\n" +
+                $"conversation history each turn. They're cheap; the headline\n" +
+                $"number looks scarier than the actual cost.";
+        }
+    }
+
     private static string FormatTokens(long tokens) => tokens switch
     {
         >= 1_000_000 => $"{tokens / 1_000_000.0:F1}M",

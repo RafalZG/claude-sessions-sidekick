@@ -38,6 +38,23 @@ public partial class App : Application
             return;
         }
 
+        // Clear stale Windows toast notifications from the previous installed
+        // version. NotifyIcon balloons get duplicated into Action Center on
+        // Win10+; without this, a user who saw "Update available: 1.0.0-rc2"
+        // before updating still sees that stale notification after the update
+        // finishes. Best-effort: dev builds without a registered AppUserModelID
+        // will throw — swallow.
+        try
+        {
+            // `global::` escape — WPF's `Application` has a `Windows` collection
+            // property that otherwise shadows the WinRT `Windows.*` namespace.
+            global::Windows.UI.Notifications.ToastNotificationManager.History.Clear();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Could not clear toast notification history: {ex.Message}");
+        }
+
         // Catch unhandled exceptions to log them instead of crashing silently
         DispatcherUnhandledException += (_, args) =>
         {

@@ -40,6 +40,24 @@ public class AppSettings
     [JsonPropertyName("showActiveSessions")]
     public bool ShowActiveSessions { get; set; } = true;
 
+    /// <summary>
+    /// Master switch for the automatic update check on startup. When off, no
+    /// background poll runs and no tray balloon shows — the user can still
+    /// trigger a check manually via the tray menu, which bypasses both this
+    /// switch and the 8h throttle below.
+    /// </summary>
+    [JsonPropertyName("checkForUpdatesOnStartup")]
+    public bool CheckForUpdatesOnStartup { get; set; } = true;
+
+    /// <summary>
+    /// Timestamp of the last automatic update check (UTC). Used to throttle
+    /// the auto-check so that quickly-restarting users (e.g. when several
+    /// updates ship the same day) don't get pestered with a fresh toast
+    /// every restart. Manual checks via the tray menu don't update this.
+    /// </summary>
+    [JsonPropertyName("lastUpdateCheckUtc")]
+    public DateTimeOffset? LastUpdateCheckUtc { get; set; }
+
     [JsonPropertyName("customCriticalPercent")]
     public int CustomCriticalPercent { get; set; } = 75;
 

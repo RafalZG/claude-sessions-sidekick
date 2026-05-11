@@ -92,6 +92,7 @@ public partial class SettingsWindow : Window
         parts.Add((chkNotifications?.IsChecked == true).ToString());
         parts.Add((chkPermissionSuggestions?.IsChecked == true).ToString());
         parts.Add((chkShowActiveSessions?.IsChecked == true).ToString());
+        parts.Add((chkCheckForUpdatesOnStartup?.IsChecked == true).ToString());
         parts.Add(((cmbShell?.SelectedItem as ComboBoxItem)?.Tag ?? ShellType.Auto).ToString()!);
         parts.Add(txtClaudeExe?.Text?.Trim() ?? "");
         parts.Add(txtClaudeHome?.Text?.Trim() ?? "");
@@ -610,6 +611,7 @@ public partial class SettingsWindow : Window
         _settings.EnableCompactNotifications = chkNotifications.IsChecked == true;
         _settings.EnablePermissionSuggestions = chkPermissionSuggestions.IsChecked == true;
         _settings.ShowActiveSessions = chkShowActiveSessions.IsChecked == true;
+        _settings.CheckForUpdatesOnStartup = chkCheckForUpdatesOnStartup.IsChecked == true;
         _settings.PreferredShell = (cmbShell.SelectedItem as ComboBoxItem)?.Tag is ShellType s
             ? s : ShellType.Auto;
         var exePath = txtClaudeExe.Text.Trim();
@@ -657,6 +659,7 @@ public partial class SettingsWindow : Window
         chkNotifications.IsChecked = _settings.EnableCompactNotifications;
         chkPermissionSuggestions.IsChecked = _settings.EnablePermissionSuggestions;
         chkShowActiveSessions.IsChecked = _settings.ShowActiveSessions;
+        chkCheckForUpdatesOnStartup.IsChecked = _settings.CheckForUpdatesOnStartup;
 
         _suppressModEvents = false;
     }

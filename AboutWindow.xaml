@@ -97,8 +97,11 @@
                        Margin="0,0,0,8"/>
 
             <!-- Grid keeps icon column at a fixed width so labels line up regardless of
-                 emoji metric variance. Segoe UI Emoji on every icon forces color glyphs;
-                 without it the symbols render in the inherited foreground (dark on dark). -->
+                 glyph metric variance. WPF's text pipeline does not render color emoji
+                 (no DirectWrite COLR/CPAL support) — every glyph is drawn as a monochrome
+                 tint in `Foreground`. Plain monochrome Unicode symbols render cleaner and
+                 more consistently than colour emoji codepoints at this size; explicit
+                 Foreground keeps them visible on the dark background. -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="20"/>
@@ -111,32 +114,36 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="&#x2B50;" FontSize="12"
-                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="&#x2605;" FontSize="13"
+                           Foreground="#A0B0FF" VerticalAlignment="Center" Margin="0,0,0,6"
+                           ToolTip="Star — source code"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" x:Name="lnkGitHub" Text="GitHub Repository" FontSize="12"
                            Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
                            VerticalAlignment="Center" Margin="0,0,0,6"
                            MouseLeftButtonDown="LnkGitHub_Click"
                            ToolTip="View source code, report issues, and contribute"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="&#x1F41B;" FontSize="12"
-                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="&#x26A0;" FontSize="13"
+                           Foreground="#E8A030" VerticalAlignment="Center" Margin="0,0,0,6"
+                           ToolTip="Warning — report a problem"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" x:Name="lnkIssues" Text="Report a Bug / Request a Feature" FontSize="12"
                            Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
                            VerticalAlignment="Center" Margin="0,0,0,6"
                            MouseLeftButtonDown="LnkIssues_Click"
                            ToolTip="Open a GitHub issue to report bugs or suggest new features"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="&#x1F4DD;" FontSize="12"
-                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="&#x270E;" FontSize="13"
+                           Foreground="#A0B0FF" VerticalAlignment="Center" Margin="0,0,0,6"
+                           ToolTip="Note — release notes"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" x:Name="lnkChangelog" Text="What's new (CHANGELOG)" FontSize="12"
                            Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
                            VerticalAlignment="Center" Margin="0,0,0,6"
                            MouseLeftButtonDown="LnkChangelog_Click"
                            ToolTip="View release notes for past versions"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="&#x1F4E6;" FontSize="12"
-                           FontFamily="Segoe UI Emoji" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="&#x25C9;" FontSize="13"
+                           Foreground="#A0B0FF" VerticalAlignment="Center"
+                           ToolTip="Releases"/>
                 <TextBlock Grid.Row="3" Grid.Column="1" x:Name="lnkReleases" Text="All releases" FontSize="12"
                            Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
                            VerticalAlignment="Center"

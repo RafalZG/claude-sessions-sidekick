@@ -439,8 +439,16 @@
                                     SortMemberPath="TotalIn"
                                     svc:DataGridColumnHelper.Key="tokensIn">
                     <DataGridTextColumn.Header>
-                        <TextBlock Text="In" ToolTip="Total input tokens (input + cache read + cache creation).&#x0a;This is everything Claude reads each turn: code, files, conversation history"/>
+                        <TextBlock Text="In" ToolTip="Total prompt tokens (fresh input + cache reads + cache writes).&#x0a;Most of this is cache reads — Claude re-reading history each turn.&#x0a;Hover a cell for the per-bucket breakdown."/>
                     </DataGridTextColumn.Header>
+                    <DataGridTextColumn.ElementStyle>
+                        <!-- Per-cell tooltip with the fresh / cache-read / cache-write
+                             breakdown. The lump-sum number in the cell is honest but
+                             scary; the tooltip explains that ~95% is cheap cache reads. -->
+                        <Style TargetType="TextBlock">
+                            <Setter Property="ToolTip" Value="{Binding TokensInTooltip}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
                 <DataGridTextColumn Binding="{Binding TokensOutText}" Width="70"
                                     SortMemberPath="OutputTokens"

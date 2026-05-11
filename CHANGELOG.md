@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc4] — 2026-05-11
+
+### Fixed
+- About window: link icons are now actually visible on the dark background.
+  Previous rc2/rc3 attempt set `FontFamily="Segoe UI Emoji"` but WPF's text
+  pipeline doesn't render colour emoji glyphs (no DirectWrite COLR/CPAL
+  support) — every glyph was being drawn as a monochrome tint in the
+  inherited `Foreground`, which defaulted to black. Replaced the emoji
+  codepoints with monochrome Unicode symbols (★ ⚠ ✎ ◉) and set explicit
+  bright `Foreground` per icon, matching the window's accent colors.
+- Stale "update available" toasts in Windows Action Center are now cleared
+  on app startup (`ToastNotificationManager.History.Clear()`), so a user
+  who already installed the update doesn't keep seeing a notification
+  about the version they're already running.
+
+### Added
+- Setting "Check for updates on startup" (Settings → General → Updates).
+  Default on. When off, no automatic check runs — the user still has the
+  manual "Check for updates…" tray menu action.
+- 8-hour throttle on the automatic update check. If several releases ship
+  on the same day, a user who restarts the app multiple times in that
+  window only gets one toast notification instead of one per restart.
+  Manual checks via the tray menu bypass the throttle.
+
+### Changed
+- Session Browser "In" column now has a per-cell tooltip showing the
+  breakdown into fresh input, cache reads, and cache writes — plus the
+  percentage of total taken by cache reads. The headline "1.8B tokens"
+  number was scaring users; the tooltip makes clear that ~95% of it is
+  cache reads, billed at roughly 1/10 the rate of fresh input. The cell
+  value itself is unchanged (still the lump sum), so column sorting
+  works the same way.
+- "Turns" column now counts real user-typed prompts instead of assistant
+  messages. Previous logic incremented on every assistant message that
+  contained `text` or `thinking` content — but those are emitted on every
+  tool round, not once per user prompt. A heavy session with 200 user
+  prompts and ~10 tool rounds each was reporting "2000 turns". The new
+  count matches what users intuitively call a "turn".
+- Target framework bumped from `net10.0-windows` to
+  `net10.0-windows10.0.19041.0` to access WinRT
+  `Windows.UI.Notifications.ToastNotificationManager`. Minimum supported
+  Windows version is now Win10 May 2020 Update (build 19041); older
+  builds are end-of-life and not supported anyway.
+
 ## [1.0.0-rc3] — 2026-05-11
 
 Trust-protecting fix for the Session Browser's "Ctx %" column.
@@ -75,7 +119,8 @@ First public release.
 - Exe is unsigned — Cortex XDR / Defender SmartScreen may flag on first launch (SignPath OSS code-signing application in progress)
 - The "Mini Buddy" mood indicator (in-tray emoji reflecting state) was started but is currently shelved; planned for a future release
 
-[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0-rc3...HEAD
+[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0-rc4...HEAD
+[1.0.0-rc4]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc4
 [1.0.0-rc3]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc3
 [1.0.0-rc2]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc2
 [1.0.0]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0

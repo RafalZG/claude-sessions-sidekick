@@ -2,7 +2,13 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- The `windows10.0.19041.0` suffix opts in to the implicit
+         `Microsoft.Windows.SDK.NET` WinRT projections so we can call
+         `Windows.UI.Notifications.ToastNotificationManager.History.Clear()`
+         on startup, which dismisses stale "update available" toasts that
+         Windows Action Center keeps around after the user already updated.
+         Build 19041 = Windows 10 May 2020 Update; anything older is EOL. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <RootNamespace>ClaudeSessionsSidekick</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

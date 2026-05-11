@@ -532,6 +532,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>
@@ -580,6 +581,11 @@
                             <CheckBox x:Name="chkShowActiveSessions" Grid.Row="4" Grid.Column="1" Margin="0,8,0,0"
                                       Content="Show active sessions and /compact suggestions in widget"
                                       ToolTip="When on, the widget shows a per-session token panel with inline /compact suggestions.&#x0a;When off, those rows and any related toast notifications are hidden — session tracking still runs in the background for the Session Browser."/>
+
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Updates:" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                            <CheckBox x:Name="chkCheckForUpdatesOnStartup" Grid.Row="5" Grid.Column="1" Margin="0,8,0,0"
+                                      Content="Check for updates on startup"
+                                      ToolTip="When on, the app checks GitHub for a newer version once every 8 hours after startup&#x0a;and shows a tray notification if one is available.&#x0a;When off, no automatic check runs — you can still trigger one manually from the tray menu (Check for updates...)."/>
                         </Grid>
                     </Border>
                 </StackPanel>

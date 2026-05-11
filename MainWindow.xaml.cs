@@ -118,8 +118,28 @@ public partial class MainWindow : Window
 
     private readonly System.Threading.CancellationTokenSource _updateCheckCts = new();
 
+    // Skip the auto-check unless this many hours have passed since the last
+    // one. Without this, every update + restart cycle (5 updates landed
+    // today => 5 toasts) pesters the user with a fresh "update available"
+    // toast each time the app starts. Manual "Check for updates..." from
+    // the tray menu always bypasses this throttle.
+    private static readonly TimeSpan UpdateCheckThrottle = TimeSpan.FromHours(8);
+
     private async Task CheckForUpdatesBackgroundAsync()
     {
+        // Master switch: user can fully opt out via Settings.
+        if (!_appSettings.CheckForUpdatesOnStartup)
+        {
+            return;
+        }
+
+        // Throttle: skip if a check happened recently.
+        if (_appSettings.LastUpdateCheckUtc.HasValue
+            && DateTimeOffset.UtcNow - _appSettings.LastUpdateCheckUtc.Value < UpdateCheckThrottle)
+        {
+            return;
+        }
+
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(30), _updateCheckCts.Token);
@@ -137,6 +157,18 @@ public partial class MainWindow : Window
         }
 
         var update = await _updateService.CheckForUpdatesAsync();
+
+        // Mark the throttle window opened regardless of whether anything
+        // was found — a "no update" check still counts against the cooldown.
+        _appSettings.LastUpdateCheckUtc = DateTimeOffset.UtcNow;
+        try
+        {
+            SettingsService.Save(_appSettings);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Could not persist LastUpdateCheckUtc: {ex.Message}");
+        }
         if (update == null || _updateCheckCts.IsCancellationRequested)
         {
             return;
