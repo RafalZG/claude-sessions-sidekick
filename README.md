@@ -2,7 +2,14 @@
 
 > Tray sidekick for [Claude Code](https://docs.claude.com/claude-code) — live usage tracking, session browser, quick launchers, and more.
 
-A Windows tray widget that complements Claude Code with the things the CLI itself doesn't: a persistent at-a-glance view of your usage limits, a searchable browser for all your past sessions, per-session notes and color tags, project quick launchers with global hotkeys, and a prompt library.
+![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
+![.NET](https://img.shields.io/badge/.NET-10-512BD4)
+![License](https://img.shields.io/badge/license-MIT-green)
+[![Latest release](https://img.shields.io/github/v/release/RafalZG/claude-sessions-sidekick?include_prereleases&label=release)](https://github.com/RafalZG/claude-sessions-sidekick/releases)
+
+Claude Code's CLI is great at writing code; it's less great at telling you how much of your 5-hour block is left, where you parked that one session from last Tuesday, or which `/model` your latest project actually uses. Sidekick is a tray-resident companion that fills those gaps — a persistent usage view, a searchable browser for every session you've ever had, per-session notes and color tags, project quick launchers with global hotkeys, and a prompt library.
+
+Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no background services, no telemetry.
 
 **Status:** v1.0.0 — first public release. Tested on Windows 10/11 with .NET 10 runtime.
 
@@ -41,18 +48,30 @@ A Windows tray widget that complements Claude Code with the things the CLI itsel
 - View detected Claude Code installation, model defaults, MCP servers per project
 - Block/install MCP servers across projects
 
+## Requirements
+
+- Windows 10 (build 19041 / May 2020 Update) or newer / Windows 11
+- [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [Claude Code CLI](https://docs.claude.com/claude-code) installed and signed in
+
 ## Install
 
 1. Download the latest `ClaudeSessionsSidekick.exe` from [Releases](https://github.com/RafalZG/claude-sessions-sidekick/releases)
-2. Make sure you have [.NET 10 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed (Windows Desktop)
-3. Double-click the exe; it lives in your tray
-4. (Optional) right-click tray → Settings → Quick Launch to add your projects
+2. Double-click the exe; it lives in your tray
+3. (Optional) right-click tray → Settings → Quick Launch to add your projects
 
 The exe is currently **unsigned** — Cortex XDR / Defender SmartScreen may flag on first run. Code signing via SignPath OSS tier is in progress.
 
 ## Updates
 
 The app checks for a new version on startup and shows a tray balloon when one is available. To install: right-click the tray icon → **Check for updates…**. The download + swap + restart is handled automatically (powered by [Velopack](https://github.com/velopack/velopack)).
+
+## Uninstall
+
+1. Right-click the tray icon → **Exit**
+2. Open Windows **Settings → Apps → Installed apps**, find **Claude Sessions Sidekick**, click **Uninstall**
+
+This removes the application binary and the auto-update infrastructure under `%LocalAppData%\ClaudeSessionsSidekick\`. Your user data (settings, favorites, color tags, notes, prompt library) lives separately under `%APPDATA%\ClaudeSessionsSidekick\` and is **not** removed by uninstall — so you can reinstall later without losing your customizations. For a fully clean removal, delete that folder manually after uninstall.
 
 ## Build from source
 
@@ -100,6 +119,20 @@ PRs welcome.
 Security issues: please report privately via [GitHub Security Advisories](https://github.com/RafalZG/claude-sessions-sidekick/security/advisories/new). See [SECURITY.md](SECURITY.md).
 
 Privacy: the app does not transmit any data to the author or any third party. The only outbound network call is to Anthropic's official Claude Code usage API using your own OAuth token. See [PRIVACY.md](PRIVACY.md) for full details.
+
+## Code signing policy
+
+Free code signing on Windows is provided by [SignPath.io](https://about.signpath.io/), certificate by the [SignPath Foundation](https://signpath.org/).
+
+### Roles
+
+- Committer / Reviewer / Approver: Rafał Zygmunt ([@RafalZG](https://github.com/RafalZG))
+
+All source changes are made through this public repository. Releases are built from source by GitHub Actions (see [`.github/workflows/release.yml`](.github/workflows/release.yml)) and published as GitHub Releases. The signing step runs server-side at SignPath on the built artifact — the certificate's private key never leaves SignPath infrastructure and is not accessible to the project author.
+
+### Privacy
+
+See [PRIVACY.md](PRIVACY.md). Claude Sessions Sidekick does not transmit user data to the project author. The only outbound network calls are to Anthropic's Claude Code usage API (using the user's own OAuth token) and to GitHub Releases for update checks and downloads.
 
 ## License
 

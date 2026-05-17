@@ -80,7 +80,7 @@
 
             <!-- Header -->
             <DockPanel Grid.Row="0" Margin="0,0,0,8">
-                <TextBlock x:Name="txtTitle" Text="Claude Usage" Foreground="#A0B0FF" FontSize="13" FontWeight="Bold"
+                <TextBlock x:Name="txtTitle" Text="Claude Sessions" Foreground="#A0B0FF" FontSize="13" FontWeight="Bold"
                            VerticalAlignment="Center" Cursor="Hand"
                            MouseRightButtonDown="TxtTitle_RightClick"/>
                 <!-- Mini stats (visible in Mini mode only, replaces full body) -->
