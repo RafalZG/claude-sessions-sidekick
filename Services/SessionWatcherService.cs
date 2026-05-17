@@ -148,11 +148,25 @@ public class SessionWatcherService : IDisposable
                 _sessions[sessionId] = session;
             }
 
-            var timestamp = root.TryGetProperty("timestamp", out var tsProp) && tsProp.GetString() is string tsStr
-                ? DateTimeOffset.Parse(tsStr)
-                : DateTimeOffset.UtcNow;
+            // Only update LastSeen when the JSONL line carries its own
+            // timestamp. The previous fallback to DateTimeOffset.UtcNow
+            // pumped LastSeen forward whenever Claude Code emitted a
+            // timestamp-less line (custom-title, summary, occasional
+            // metadata entries), making closed sessions appear "active"
+            // in the widget for the full 10-min ActiveThreshold after
+            // the user had stopped using them.
+            DateTimeOffset? timestamp = null;
+            if (root.TryGetProperty("timestamp", out var tsProp)
+                && tsProp.GetString() is string tsStr
+                && DateTimeOffset.TryParse(tsStr, out var parsed))
+            {
+                timestamp = parsed;
+            }
 
-            session.LastSeen = timestamp;
+            if (timestamp.HasValue)
+            {
+                session.LastSeen = timestamp.Value;
+            }
 
             if (root.TryGetProperty("slug", out var slugProp))
             {
@@ -192,7 +206,10 @@ public class SessionWatcherService : IDisposable
                 if (IsUserTypedMessage(root))
                 {
                     session.TurnCount++;
-                    session.TurnTimestamps.Add(timestamp);
+                    if (timestamp.HasValue)
+                    {
+                        session.TurnTimestamps.Add(timestamp.Value);
+                    }
                 }
             }
             else if (type == "assistant")

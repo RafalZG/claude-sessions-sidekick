@@ -1694,7 +1694,12 @@ public partial class MainWindow : Window
                 Text = label,
                 Foreground = new SolidColorBrush(Color.FromRgb(0xA0, 0xB0, 0xFF)),
                 FontSize = 11,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                // Helps users notice when a session is about to age out of the
+                // 10-min active window — and gives an at-a-glance way to spot
+                // a false-positive "active" sticking around after the user
+                // actually finished (e.g. if upstream JSONL parsing drifts).
+                ToolTip = $"Last activity: {FormatLastActivity(s.LastSeen)}"
             };
 
             var totalIn = s.InputTokens + s.CacheReadTokens + s.CacheCreationTokens;
@@ -1752,6 +1757,28 @@ public partial class MainWindow : Window
 
             panelSessionDetails.Children.Add(stack);
         }
+    }
+
+    private static string FormatLastActivity(DateTimeOffset lastSeen)
+    {
+        var ago = DateTimeOffset.UtcNow - lastSeen;
+        if (ago.TotalSeconds < 30)
+        {
+            return "just now";
+        }
+        if (ago.TotalMinutes < 1)
+        {
+            return $"{(int)ago.TotalSeconds}s ago";
+        }
+        if (ago.TotalHours < 1)
+        {
+            return $"{(int)ago.TotalMinutes} min ago";
+        }
+        if (ago.TotalDays < 1)
+        {
+            return $"{(int)ago.TotalHours}h ago";
+        }
+        return $"{(int)ago.TotalDays}d ago";
     }
 
     private void TokenHeader_Click(object sender, MouseButtonEventArgs e)

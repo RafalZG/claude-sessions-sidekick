@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-rc5] — 2026-05-18
+
+### Fixed
+- Active session staleness: sessions closed 20-40 minutes ago no longer
+  keep appearing as "active" in the widget. Root cause was in
+  `SessionWatcherService.ProcessLine` — JSONL lines without a `timestamp`
+  field (Claude Code occasionally emits `custom-title` / summary entries
+  without one) fell back to `DateTimeOffset.UtcNow` for `LastSeen`. That
+  fallback pumped `LastSeen` forward on every stray line, keeping closed
+  sessions visible for the full 10-min `ActiveThreshold` after the user
+  had actually finished. Timestamp-less lines now leave `LastSeen` alone.
+- `TurnTimestamps` no longer pollutes its rate-of-activity history with
+  the same fake "now" timestamp on user-typed lines that lack one. The
+  turn count still increments (the message was real) — we just don't
+  fabricate a time for it.
+- Malformed `timestamp` values (free-form strings, partial ISO 8601, etc.)
+  used to throw `FormatException` inside `DateTimeOffset.Parse`, which
+  the outer try/catch swallowed — discarding the entire line including
+  any `usage` token data on it. Switched to `TryParse`; bad timestamps
+  now just skip the `LastSeen` update and let the rest of the line
+  through normally.
+- Tray widget header text "Claude Usage" → "Claude Sessions" (carryover
+  from the XGGClaudeUsageWidget → claude-sessions-sidekick rename;
+  every other window header had already been rebranded).
+
+### Added
+- Per-row tooltip on the widget's active-session list: hover any project
+  name and you see "Last activity: X min ago". Surfaces the underlying
+  recency so a user can spot a false-positive "active" sticking around
+  if upstream JSONL parsing ever drifts again, and shows how close a
+  session is to ageing out of the 10-min active window.
+
+### Tests
+- New `SessionWatcherServiceTests` (4 tests) covering the `LastSeen` fix,
+  the timestamp-present positive control, the `TurnTimestamps` guard,
+  and the malformed-timestamp tolerance. Suite now at 335 tests (was 331
+  on rc4).
+
 ## [1.0.0-rc4] — 2026-05-11
 
 ### Fixed
@@ -119,7 +157,8 @@ First public release.
 - Exe is unsigned — Cortex XDR / Defender SmartScreen may flag on first launch (SignPath OSS code-signing application in progress)
 - The "Mini Buddy" mood indicator (in-tray emoji reflecting state) was started but is currently shelved; planned for a future release
 
-[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0-rc4...HEAD
+[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0-rc5...HEAD
+[1.0.0-rc5]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc5
 [1.0.0-rc4]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc4
 [1.0.0-rc3]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc3
 [1.0.0-rc2]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc2
