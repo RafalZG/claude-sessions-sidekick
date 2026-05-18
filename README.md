@@ -7,6 +7,10 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Latest release](https://img.shields.io/github/v/release/RafalZG/claude-sessions-sidekick?include_prereleases&label=release)](https://github.com/RafalZG/claude-sessions-sidekick/releases)
 
+<p align="center">
+  <img src="Screenshots/session-browser.png" alt="Session Browser showing 8 sessions across projects with notes, color tags, and favorites" width="780" />
+</p>
+
 Claude Code's CLI is great at writing code; it's less great at telling you how much of your 5-hour block is left, where you parked that one session from last Tuesday, or which `/model` your latest project actually uses. Sidekick is a tray-resident companion that fills those gaps — a persistent usage view, a searchable browser for every session you've ever had, per-session notes and color tags, project quick launchers with global hotkeys, and a prompt library.
 
 Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no background services, no telemetry.
@@ -31,12 +35,21 @@ Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no ba
 - **Favorites** with greyed star ☆ for unflagged
 - Persistent column widths/order + window size — right-click header to restore defaults
 - Quick "Resume" launches `claude --resume {sessionId}` in your shell of choice
+- Hover the **In** column to see the breakdown of fresh input vs. cache reads vs. cache writes — the headline number is dominated by cache reads, which bill at roughly 1/10 the rate
+
+<p align="center">
+  <img src="Screenshots/session-browser-in-tooltip.png" alt="In-column tooltip breaking 674.5k total prompt tokens into 2.5k fresh / 616k cache reads / 56k cache writes" width="780" />
+</p>
 
 ### Quick launchers
 - Per-project entries with global hotkeys (low-level keyboard hook — works even when Claude Code isn't focused)
 - Optional `--continue` (resume last session) per entry
 - Per-entry shell override: CMD / PowerShell / Git Bash / Auto-detect
 - Per-entry **model override** (Sonnet 1M / Opus 1M / Haiku 200k) — forces `--model X` on every launch, overrides whatever the project's last `/model` choice would otherwise produce
+
+<p align="center">
+  <img src="Screenshots/settings-quick-launch.png" alt="Quick Launch settings tab with 4 project entries, each bound to a Win+Alt+N hotkey" width="540" />
+</p>
 
 ### Permission helper
 - Watches Claude Code permission additions; suggests generalizing overly-narrow rules (e.g. `cd /specific/path && grep ...` → broader pattern) — opt-in
@@ -133,6 +146,55 @@ All source changes are made through this public repository. Releases are built f
 ### Privacy
 
 See [PRIVACY.md](PRIVACY.md). Claude Sessions Sidekick does not transmit user data to the project author. The only outbound network calls are to Anthropic's Claude Code usage API (using the user's own OAuth token) and to GitHub Releases for update checks and downloads.
+
+## More screenshots
+
+<details>
+<summary>Tray view modes (Mini / Compact / Full)</summary>
+
+The widget cycles between three sizes via the tray menu. Mini is a slim
+pill showing just the two utilization percentages; Compact adds the
+progress bars; Full adds the per-session breakdown.
+
+<p align="center">
+  <img src="Screenshots/claude-usage-mini.png" alt="Mini view" width="320" />
+  <img src="Screenshots/claude-usage-compact.png" alt="Compact view" width="320" />
+  <img src="Screenshots/claude-usage-full.png" alt="Full view" width="320" />
+</p>
+
+</details>
+
+<details>
+<summary>Settings tabs</summary>
+
+<p align="center">
+  <img src="Screenshots/settings-general.png" alt="General settings" width="400" />
+  <img src="Screenshots/settings-global-shortcuts.png" alt="Global shortcuts" width="400" />
+  <img src="Screenshots/settings-compact-recommendations.png" alt="Compact recommendations" width="400" />
+</p>
+
+</details>
+
+<details>
+<summary>Permission Manager, Memory Manager, Agents &amp; Skills, Prompt Library</summary>
+
+<p align="center">
+  <img src="Screenshots/permission-manager.png" alt="Permission Manager" width="640" />
+</p>
+
+<p align="center">
+  <img src="Screenshots/memory-manager.png" alt="Memory Manager" width="640" />
+</p>
+
+<p align="center">
+  <img src="Screenshots/agents-and-skills.png" alt="Agents and Skills browser" width="640" />
+</p>
+
+<p align="center">
+  <img src="Screenshots/prompt-library.png" alt="Prompt Library" width="500" />
+</p>
+
+</details>
 
 ## License
 
