@@ -69,11 +69,37 @@ Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no ba
 
 ## Install
 
-1. Download the latest `ClaudeSessionsSidekick.exe` from [Releases](https://github.com/RafalZG/claude-sessions-sidekick/releases)
-2. Double-click the exe; it lives in your tray
-3. (Optional) right-click tray → Settings → Quick Launch to add your projects
+Three install paths, pick the one that suits your environment:
 
-The exe is currently **unsigned** — Cortex XDR / Defender SmartScreen may flag on first run. Code signing via SignPath OSS tier is in progress.
+### Via winget (recommended for personal install)
+
+```powershell
+winget install RafalZG.ClaudeSessionsSidekick
+```
+
+Installs silently to `%LocalAppData%\ClaudeSessionsSidekick\`. No SmartScreen prompt — winget verifies the installer hash against its manifest and runs the install in the context of the Microsoft-signed `winget.exe`.
+
+> Pending acceptance into the public winget catalog. Until then, install from the in-repo manifest: `winget install --manifest winget/1.0.0-rc5` after cloning. See [winget/README.md](winget/README.md).
+
+### Direct download from GitHub
+
+1. Download `ClaudeSessionsSidekick-win-Setup.exe` from [Releases](https://github.com/RafalZG/claude-sessions-sidekick/releases)
+2. Run it. On first launch you may see a Windows SmartScreen warning ("Windows protected your PC") — click **More info** → **Run anyway**. This is expected for unsigned OSS; see [Code signing policy](#code-signing-policy) below for the plan.
+3. The app lives in your tray. Right-click → Settings → Quick Launch to add your projects.
+
+### Via Intune / Company Portal (corporate deployment)
+
+For IT admins pushing the app to managed devices via Microsoft Intune:
+
+| Field | Value |
+|---|---|
+| Install command | `ClaudeSessionsSidekick-win-Setup.exe --silent` |
+| Uninstall command | Read `UninstallString` from `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ClaudeSessionsSidekick` (registered by the installer) |
+| Detection rule | File exists: `%LocalAppData%\ClaudeSessionsSidekick\current\ClaudeSessionsSidekick.exe` |
+| Install context | User |
+| Architecture | x64 |
+
+Per-user install, no admin elevation required. Intune deployment bypasses SmartScreen entirely because the install runs through the Intune Management Extension, which is trusted by the managed device's policy.
 
 ## Updates
 
@@ -134,6 +160,10 @@ Security issues: please report privately via [GitHub Security Advisories](https:
 Privacy: the app does not transmit any data to the author or any third party. The only outbound network call is to Anthropic's official Claude Code usage API using your own OAuth token. See [PRIVACY.md](PRIVACY.md) for full details.
 
 ## Code signing policy
+
+**Current status (May 2026):** The Windows binary is **unsigned**. An application to the [SignPath Foundation](https://signpath.org/) OSS program was declined as of 2026-05-21 — the project is too fresh for their public-visibility threshold. A re-application is planned once community adoption accumulates. In the meantime, the recommended install paths above (winget, Intune) bypass SmartScreen friction for almost every user; direct-download from GitHub Releases shows a one-time "Run anyway" prompt.
+
+When code signing eventually lands, this is the policy it will follow:
 
 Free code signing on Windows is provided by [SignPath.io](https://about.signpath.io/), certificate by the [SignPath Foundation](https://signpath.org/).
 
