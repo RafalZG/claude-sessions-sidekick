@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-05-24
+
+Stable release. No source changes since rc5 — this is a promotion of the
+2026-05-18 build (commit `43a7e17`) to a clean version number after two
+months of daily personal use across five release-candidate cycles.
+
+The cumulative substance of the 1.0 line is documented in the
+rc1 → rc5 entries below. Behaviour-wise, installing v1.0.0 is
+indistinguishable from rc5; the bump is a stability and trust signal
+(prominent in winget catalog and About window) rather than a feature
+release. Auto-update from any earlier 1.0.0-rc tag picks this up via
+the normal Velopack flow because semver ranks the final tag above any
+prerelease (`1.0.0` > `1.0.0-rc5`).
+
+Headline capabilities present at 1.0.0:
+- Tray-resident usage widget (Mini / Compact / Full) with 5-hour
+  rolling block and weekly Sonnet/Opus utilization
+- Session browser across all projects with per-session notes, color
+  tags, favorites, full-text JSONL search, per-cell token tooltips
+- Project Quick Launchers with global low-level keyboard hotkeys,
+  per-entry shell + model override
+- Permission helper, Prompt library, Claude config + MCP browser,
+  Memory + Agents/Skills viewers
+- Auto-update via Velopack with opt-out + 8-hour throttle
+- Active session staleness fixes (rc5) — no more false-positive
+  "active" sessions after the user has finished
+
+Known limitations carried into 1.0.0:
+- Windows-only (WPF / .NET 10)
+- Binary is unsigned. SignPath Foundation application declined
+  2026-05-21 ("not yet enough public visibility"); re-application
+  planned for ~August 2026. Recommended install paths (winget,
+  Intune) bypass SmartScreen friction in the meantime.
+
 ## [1.0.0-rc5] — 2026-05-18
 
 ### Fixed
@@ -128,9 +162,12 @@ Polish + transparency pass on top of rc1.
 - Release pipeline: `dotnet publish` now receives `-p:Version` matching the git
   tag, so the assembly's InformationalVersion stays in sync with the release
 
-## [1.0.0] — 2026-05-10
+## [1.0.0-rc1] — 2026-05-10
 
-First public release.
+First public release (originally documented under `[1.0.0]` here, but
+the actual tag pushed at the time was `v1.0.0-rc1`; renamed in the
+2026-05-24 stable-release prep to free up `[1.0.0]` for the actual
+1.0.0 entry above).
 
 ### Added
 - Live tray view with 5-hour rolling block + weekly Sonnet/Opus utilization
@@ -157,9 +194,10 @@ First public release.
 - Exe is unsigned — Cortex XDR / Defender SmartScreen may flag on first launch (SignPath OSS code-signing application in progress)
 - The "Mini Buddy" mood indicator (in-tray emoji reflecting state) was started but is currently shelved; planned for a future release
 
-[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0-rc5...HEAD
+[Unreleased]: https://github.com/RafalZG/claude-sessions-sidekick/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0
 [1.0.0-rc5]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc5
 [1.0.0-rc4]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc4
 [1.0.0-rc3]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc3
 [1.0.0-rc2]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc2
-[1.0.0]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0
+[1.0.0-rc1]: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc1
