@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
 PackageIdentifier: RafalZG.ClaudeSessionsSidekick
-PackageVersion: 1.0.0-rc5
+PackageVersion: 1.0.0
 PackageLocale: en-US
 Publisher: Rafał Zygmunt
 PublisherUrl: https://github.com/RafalZG
@@ -37,10 +37,11 @@ Tags:
   - session-manager
   - dotnet
 ReleaseNotes: |-
-  rc5 fixes the active session staleness bug (sessions closed 20-40 min ago no longer show
-  as "active"), adds a Last Activity tooltip on session rows, fixes the tray widget header
-  to "Claude Sessions" (was leftover "Claude Usage" from the rename), and tolerates malformed
-  timestamps without dropping JSONL lines. See CHANGELOG.md for full details.
-ReleaseNotesUrl: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0-rc5
+  First stable 1.0.0 release. No source changes since rc5 — promoting the 2026-05-18 build
+  to a clean version number after two months of daily personal use and five rc cycles.
+  Feature set: tray usage widget (Mini/Compact/Full), full session browser with notes and
+  color tags, Quick Launchers with global hotkeys, prompt library, Claude config + MCP
+  browser, Velopack auto-update. See CHANGELOG.md for the full rc1 → 1.0.0 history.
+ReleaseNotesUrl: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v1.0.0
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0

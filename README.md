@@ -79,7 +79,7 @@ winget install RafalZG.ClaudeSessionsSidekick
 
 Installs silently to `%LocalAppData%\ClaudeSessionsSidekick\`. No SmartScreen prompt — winget verifies the installer hash against its manifest and runs the install in the context of the Microsoft-signed `winget.exe`.
 
-> Pending acceptance into the public winget catalog. Until then, install from the in-repo manifest: `winget install --manifest winget/1.0.0-rc5` after cloning. See [winget/README.md](winget/README.md).
+> Pending acceptance into the public winget catalog. Until then, install from the in-repo manifest: `winget install --manifest winget/1.0.0` after cloning. See [winget/README.md](winget/README.md).
 
 ### Direct download from GitHub
 

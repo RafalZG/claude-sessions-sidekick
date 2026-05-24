@@ -18,7 +18,7 @@ from the local manifest:
 ```powershell
 git clone https://github.com/RafalZG/claude-sessions-sidekick.git
 cd claude-sessions-sidekick
-winget install --manifest winget/1.0.0-rc5
+winget install --manifest winget/1.0.0
 ```
 
 This bypasses the public winget catalog and points winget straight at
