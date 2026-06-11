@@ -155,8 +155,15 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
+                        <!-- Padding matches the default WPF context-menu item
+                             metric (~22 left for the icon-gutter slot, ~6 top/
+                             bottom, ~16 right so the submenu arrow has visible
+                             breathing room before the right edge). Without
+                             this, the cropped padding made "Resume with
+                             model →" rows look cramped next to the default
+                             items below them. -->
                         <Border x:Name="root" Background="{TemplateBinding Background}"
-                                BorderThickness="0" Padding="8,4">
+                                BorderThickness="0" Padding="22,6,16,6">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -167,10 +174,15 @@
                                                   RecognizesAccessKey="True"
                                                   VerticalAlignment="Center"
                                                   TextElement.Foreground="{TemplateBinding Foreground}"/>
-                                <Path Grid.Column="1" Margin="12,0,0,0"
-                                      VerticalAlignment="Center"
-                                      Data="M0,0 L4,4 L0,8 Z"
-                                      Fill="#A0B0FF"/>
+                                <!-- Glyph instead of a Path: scales with the
+                                     item font, picks up the same Foreground
+                                     hue as the header, and reads as a
+                                     submenu indicator at any DPI. -->
+                                <TextBlock Grid.Column="1" Text="&#x25B8;"
+                                           Margin="20,0,0,0"
+                                           FontSize="10"
+                                           VerticalAlignment="Center"
+                                           Foreground="#A0B0FF"/>
                                 <Popup x:Name="popup" Placement="Right"
                                        IsOpen="{TemplateBinding IsSubmenuOpen}"
                                        AllowsTransparency="True"
@@ -211,7 +223,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
                         <Border x:Name="root" Background="{TemplateBinding Background}"
-                                BorderThickness="0" Padding="8,4">
+                                BorderThickness="0" Padding="22,6,22,6">
                             <ContentPresenter ContentSource="Header"
                                               RecognizesAccessKey="True"
                                               VerticalAlignment="Center"
