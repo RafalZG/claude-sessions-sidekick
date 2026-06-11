@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings → General → "Resume model": global default `--model` applied to every
   resume from the Session Browser. Useful for moving the bulk of your sessions
   onto a fresh model line in one click.
+- Session Browser: warn before resuming a session that already has a running
+  `claude --resume {id}` process attached to it. Two concurrent claude windows
+  on the same session JSONL diverge silently and can corrupt the file —
+  detection is best-effort via a WMI command-line scan, and the dialog
+  defaults to "Continue" so power users who genuinely want a second
+  read-only view aren't blocked.
 
 ### Infrastructure
 - Release workflow now auto-submits a manifest PR to `microsoft/winget-pkgs`

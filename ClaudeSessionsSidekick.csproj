@@ -53,6 +53,10 @@
 
   <ItemGroup>
     <PackageReference Include="Markdig.Wpf" Version="0.5.0.1" />
+    <!-- System.Management is the only mechanism on Windows for reading a
+         process's full command line without P/Invoke into ntdll. Used by
+         ActiveSessionService to detect already-resumed sessions. -->
+    <PackageReference Include="System.Management" Version="9.0.0" />
     <PackageReference Include="Velopack" Version="0.0.1298" />
   </ItemGroup>
 

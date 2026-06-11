@@ -1021,6 +1021,28 @@ public partial class SessionBrowserWindow : Window
             return;
         }
 
+        // Warn before resuming a session that already has a claude process
+        // attached to it. Two concurrent claude windows on the same session
+        // JSONL diverge silently (both windows see only their own turns) and
+        // the file gets interleaved appends that can break subsequent reads.
+        // We don't hard-block — sometimes the user genuinely wants a second
+        // read-only window — but the dialog forces an explicit decision.
+        if (ActiveSessionService.IsResumeRunning(vm.SessionId))
+        {
+            var ok = ConfirmDialog.Show(
+                "Session already open",
+                $"A claude window is already resuming \"{vm.Topic}\". " +
+                "Opening a second instance can corrupt the session file " +
+                "because both processes will append to the same JSONL. " +
+                "Continue anyway?",
+                "Continue",
+                this);
+            if (!ok)
+            {
+                return;
+            }
+        }
+
         var projectRoot = ProjectKeyToPath(vm.FilePath);
         var folder = projectRoot ?? vm.Cwd ?? "";
 
