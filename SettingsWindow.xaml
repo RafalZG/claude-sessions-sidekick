@@ -230,6 +230,8 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -281,6 +283,15 @@
                                        FontSize="11" VerticalAlignment="Center" Margin="0,0,0,4" TextWrapping="Wrap"
                                        Cursor="Hand" MouseLeftButtonDown="TxtDetectedModel_Click"
                                        ToolTip="Click to open the settings file in your editor"/>
+
+                            <Border Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="3"
+                                    Height="1" Background="#30606080" Margin="0,8,0,8"/>
+
+                            <TextBlock Grid.Row="10" Grid.Column="0" Text="Resume model:" VerticalAlignment="Center" Margin="0,0,12,4"
+                                       ToolTip="Force a specific Claude model via --model when resuming a session from the Session Browser.&#x0a;&#x0a;Default (no override): Claude continues with whatever was last selected in that session.&#x0a;Sonnet / Opus / Haiku: aliases, always resolved to the latest version server-side.&#x0a;&#x0a;Per-session override is also available from the Session Browser context menu (Resume with model →)."/>
+                            <ComboBox x:Name="cmbResumeDefaultModel" Grid.Row="10" Grid.Column="1" Width="220"
+                                      Style="{StaticResource DarkCombo}" Margin="0,0,0,4" HorizontalAlignment="Left"
+                                      ToolTip="Applied to every resume from the Session Browser unless overridden via the row context menu."/>
                         </Grid>
                     </Border>
                 </StackPanel>

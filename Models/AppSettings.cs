@@ -75,6 +75,15 @@ public class AppSettings
 
     [JsonPropertyName("claudeHomeDir")]
     public string? ClaudeHomeDir { get; set; }
+
+    /// <summary>
+    /// Alias (sonnet/opus/haiku) or full ID forced via <c>--model</c> on every
+    /// resume from the Session Browser. Lets users park older sessions on a
+    /// newer model without having to <c>/model</c> after every resume.
+    /// Null = no override (Claude continues with whatever was last selected).
+    /// </summary>
+    [JsonPropertyName("resumeDefaultModel")]
+    public string? ResumeDefaultModel { get; set; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

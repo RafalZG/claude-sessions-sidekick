@@ -96,6 +96,7 @@ public partial class SettingsWindow : Window
         parts.Add(((cmbShell?.SelectedItem as ComboBoxItem)?.Tag ?? ShellType.Auto).ToString()!);
         parts.Add(txtClaudeExe?.Text?.Trim() ?? "");
         parts.Add(txtClaudeHome?.Text?.Trim() ?? "");
+        parts.Add(((cmbResumeDefaultModel?.SelectedItem as ComboBoxItem)?.Tag as string) ?? "");
         return string.Join(";;", parts);
     }
 
@@ -618,6 +619,7 @@ public partial class SettingsWindow : Window
         _settings.ClaudeExePath = string.IsNullOrEmpty(exePath) ? null : exePath;
         var homeDir = txtClaudeHome.Text.Trim();
         _settings.ClaudeHomeDir = string.IsNullOrEmpty(homeDir) ? null : homeDir;
+        _settings.ResumeDefaultModel = (cmbResumeDefaultModel.SelectedItem as ComboBoxItem)?.Tag as string;
         return _settings;
     }
 
@@ -861,6 +863,19 @@ public partial class SettingsWindow : Window
         txtClaudeHome.TextChanged += (_, _) => { UpdateClaudeHomeStatus(); UpdateDetectedModel(); };
         UpdateClaudeHomeStatus();
         UpdateDetectedModel();
+
+        cmbResumeDefaultModel.Items.Clear();
+        cmbResumeDefaultModel.Items.Add(new ComboBoxItem { Content = "Default (no override)" });
+        cmbResumeDefaultModel.Items.Add(new ComboBoxItem { Content = "Sonnet (1M)", Tag = "sonnet" });
+        cmbResumeDefaultModel.Items.Add(new ComboBoxItem { Content = "Opus (1M)",   Tag = "opus" });
+        cmbResumeDefaultModel.Items.Add(new ComboBoxItem { Content = "Haiku (200k)",Tag = "haiku" });
+        cmbResumeDefaultModel.SelectedIndex = _settings.ResumeDefaultModel switch
+        {
+            "sonnet" => 1,
+            "opus"   => 2,
+            "haiku"  => 3,
+            _        => 0
+        };
 
         UpdateShellDetectionLabel();
         UpdateClaudePathVisibility();

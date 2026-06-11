@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Session Browser: per-session model override via "Resume with model →" submenu
+  (Default / Sonnet / Opus / Haiku). Lets you park an older session on a newer
+  model alias without having to `/model` after resume.
+- Settings → General → "Resume model": global default `--model` applied to every
+  resume from the Session Browser. Useful for moving the bulk of your sessions
+  onto a fresh model line in one click.
+
+### Fixed
+- Resume now warns when the original project folder has been deleted instead of
+  silently falling back to the user-profile directory (which produced a
+  confusing "No conversation found" error from `claude --resume`). The new
+  dialog offers to recreate the empty folder so the session can be opened in
+  place.
+
 ## [1.0.0] — 2026-05-24
 
 Stable release. No source changes since rc5 — this is a promotion of the

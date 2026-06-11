@@ -993,17 +993,65 @@ public partial class SessionBrowserWindow : Window
 
     private void ResumeSelected()
     {
+        // Default path: apply the global "Resume model" setting (null = no
+        // --model flag). Per-session overrides come in via the context menu's
+        // "Resume with model →" submenu, which calls LaunchResumeForSelected
+        // directly with an explicit value.
+        LaunchResumeForSelected(SettingsService.Load().ResumeDefaultModel);
+    }
+
+    private void MenuResumeWithModel_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi)
+        {
+            return;
+        }
+        // No Tag (= "Default (no override)") means resume without --model,
+        // bypassing whatever global ResumeDefaultModel is set. Tag values
+        // ("sonnet"/"opus"/"haiku") force that alias for this launch only.
+        var tag = mi.Tag as string;
+        LaunchResumeForSelected(string.IsNullOrEmpty(tag) ? null : tag);
+    }
+
+    private void LaunchResumeForSelected(string? modelOverride)
+    {
         if (dgSessions.SelectedItem is not SessionViewModel vm)
         {
             return;
         }
 
         var projectRoot = ProjectKeyToPath(vm.FilePath);
+        var folder = projectRoot ?? vm.Cwd ?? "";
+
+        // Resume by session ID requires Claude Code to be launched with the
+        // original cwd — if the folder was deleted (project moved or cleaned
+        // up), --resume silently fails with "No conversation found" because
+        // the encoded project-key folder no longer matches. Surface this
+        // up front and let the user recreate the empty folder.
+        if (!string.IsNullOrEmpty(folder) && !Directory.Exists(folder))
+        {
+            var action = MissingFolderDialog.Show(folder, this);
+            if (action == MissingFolderAction.Cancel)
+            {
+                return;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(folder);
+            }
+            catch (Exception ex)
+            {
+                ConfirmDialog.Show("Create folder failed", ex.Message, "OK", this);
+                return;
+            }
+        }
 
         var entry = new QuickLaunchEntry
         {
             Name = vm.ProjectName,
-            FolderPath = projectRoot ?? vm.Cwd ?? ""
+            FolderPath = folder,
+            ModelOverride = modelOverride
         };
 
         ClaudeLauncherService.LaunchResume(entry, vm.SessionId);

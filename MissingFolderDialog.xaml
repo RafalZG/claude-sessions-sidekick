@@ -1,0 +1,63 @@
+<Window x:Class="ClaudeSessionsSidekick.MissingFolderDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Project folder missing"
+        SizeToContent="Height" Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        KeyDown="Window_KeyDown"
+        MaxHeight="600">
+
+    <Border CornerRadius="8" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+            Margin="8">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="12" ShadowDepth="3" Opacity="0.5" Color="Black"/>
+        </Border.Effect>
+
+        <Grid Margin="20,16,20,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Project folder missing" FontSize="14" FontWeight="Bold"
+                       Foreground="#FFC080" Margin="0,0,0,12"/>
+
+            <TextBlock Grid.Row="1" FontSize="12" Foreground="#E0E0E0" TextWrapping="Wrap"
+                       Margin="0,0,0,10">
+                <Run Text="The folder this session was recorded in no longer exists:"/>
+            </TextBlock>
+
+            <Border Grid.Row="2" Background="#1A1A28" BorderBrush="#40606080" BorderThickness="1"
+                    CornerRadius="4" Padding="8,6" Margin="0,0,0,12">
+                <TextBlock x:Name="txtFolder" FontFamily="Consolas" FontSize="11"
+                           Foreground="#C0D0FF" TextWrapping="Wrap"/>
+            </Border>
+
+            <StackPanel Grid.Row="3">
+                <TextBlock FontSize="11" Foreground="#A0A0B0" TextWrapping="Wrap"
+                           Margin="0,0,0,12">
+                    <Run Text="Claude Code requires the original folder to resume by ID."/>
+                    <LineBreak/>
+                    <Run Text="Create an empty folder at this path to recover the session, or cancel if the project was relocated and you'd prefer to handle it manually."/>
+                </TextBlock>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="btnCancel" Content="Cancel" Click="BtnCancel_Click"
+                            Background="#3A3A5A" Foreground="#E0E0E0"
+                            BorderBrush="#40606080" BorderThickness="1"
+                            Padding="16,6" Cursor="Hand" Margin="0,0,8,0"/>
+                    <Button x:Name="btnCreate" Content="Create folder" Click="BtnCreate_Click"
+                            Background="#2A4A2A" Foreground="#A0F0A0"
+                            BorderBrush="#406040" BorderThickness="1"
+                            Padding="16,6" Cursor="Hand" FontWeight="SemiBold"/>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
