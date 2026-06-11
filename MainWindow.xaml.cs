@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -692,6 +693,8 @@ public partial class MainWindow : Window
             await SafeRefreshAsync(manualRefresh: true);
         });
         debugMenu.DropDownItems.Add("Dump state to log", null, (_, _) => DumpStateToLog());
+        debugMenu.DropDownItems.Add("-");
+        debugMenu.DropDownItems.Add("Migrate data from earlier version...", null, (_, _) => MigrateFromEarlierVersion());
         menu.Items.Add(debugMenu);
         menu.Items.Add("-");
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
@@ -910,6 +913,91 @@ public partial class MainWindow : Window
         {
             AppLogger.Error("DumpStateToLog failed", ex);
         }
+    }
+
+    // Temporary helper: copies user-data files from an earlier widget install
+    // under %APPDATA% into the current sidekick's data folder. Some early
+    // testers carried over settings, favorites, notes, and color tags from
+    // a previous widget and the manual migration was getting requested
+    // often enough to warrant a one-click path. Intended to be removed once
+    // the long tail of upgrade users has run it (target: 1.0.2 / 1.0.3).
+    private void MigrateFromEarlierVersion()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        // The previous widget shipped under this folder name. Hardcoded
+        // because that's literally what's on disk for users who had it
+        // installed; we don't probe.
+        var sourceDir = Path.Combine(appData, "XGGClaudeUsageWidget");
+        var destDir = Path.Combine(appData, "ClaudeSessionsSidekick");
+
+        if (!Directory.Exists(sourceDir))
+        {
+            ConfirmDialog.Show(
+                "Migrate from earlier version",
+                "No earlier widget installation found in %APPDATA%. Nothing to migrate.",
+                "OK",
+                this);
+            return;
+        }
+
+        var ok = ConfirmDialog.Show(
+            "Migrate from earlier version",
+            "Copy settings, favorites, notes, color tags, prompt library, " +
+            "and session browser layout from an earlier widget install? " +
+            "Any existing files with the same name in the current data folder " +
+            "will be overwritten.",
+            "Migrate",
+            this);
+        if (!ok)
+        {
+            return;
+        }
+
+        string[] files =
+        [
+            "settings.json",
+            "favorites.json",
+            "session-colors.json",
+            "session-notes.json",
+            "session-browser-layout.json",
+            "prompts.json",
+            "session-names.json"
+        ];
+
+        Directory.CreateDirectory(destDir);
+        int copied = 0;
+        int failed = 0;
+        foreach (var name in files)
+        {
+            var src = Path.Combine(sourceDir, name);
+            if (!File.Exists(src))
+            {
+                // Different users had different feature footprints in the old
+                // widget — some never saved a note, others never built a
+                // prompt library. Missing source files are normal, not errors.
+                continue;
+            }
+            try
+            {
+                File.Copy(src, Path.Combine(destDir, name), overwrite: true);
+                copied++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                AppLogger.Warn($"MigrateFromEarlierVersion: failed to copy {name}: {ex.Message}");
+            }
+        }
+
+        var msg = $"Copied {copied} file{(copied == 1 ? "" : "s")} from the earlier version.\n\n" +
+                  "Restart Claude Sessions Sidekick to load the migrated settings.\n\n" +
+                  "If you previously had global shortcuts enabled, click " +
+                  "\"Enable App Shortcuts\" in the tray menu after restart.";
+        if (failed > 0)
+        {
+            msg += $"\n\n{failed} file{(failed == 1 ? "" : "s")} failed — see app.log for details.";
+        }
+        ConfirmDialog.Show("Migration complete", msg, "OK", this);
     }
 
     private static void DumpModelSources(System.Text.StringBuilder dump, string? projectRoot, string label)
