@@ -16,6 +16,10 @@ jobs:
   release:
     name: Pack & publish release
     runs-on: windows-latest
+    # Expose the resolved version so the winget submission job can reuse it
+    # without re-parsing the tag.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout
@@ -89,3 +93,33 @@ jobs:
           --releaseName "Claude Sessions Sidekick ${{ steps.version.outputs.version }}"
           --tag ${{ github.ref_name }}
           --token $env:GITHUB_TOKEN
+
+  winget:
+    # Auto-submit a manifest PR to microsoft/winget-pkgs once the GitHub release
+    # is live. Skips pre-release tags (`v1.0.0-rc1` etc.) — only clean
+    # `vMAJOR.MINOR.PATCH` tags go to the winget catalog, matching what the
+    # winget moderators expect to see.
+    name: Submit to winget catalog
+    needs: release
+    if: ${{ !contains(needs.release.outputs.version, '-') }}
+    runs-on: windows-latest
+
+    steps:
+      - name: Publish manifest to winget-pkgs
+        # `vedantmgoyal2009/winget-releaser` clones the latest published manifest
+        # for this PackageIdentifier, swaps in the new version + recomputed
+        # InstallerSha256, opens a fork PR against microsoft/winget-pkgs, and
+        # waits for moderator review. Dependencies / AppsAndFeaturesEntries
+        # blocks are carried forward from the 1.0.0 manifest so we don't have
+        # to re-declare the .NET 10 runtime dependency every release.
+        #
+        # WINGET_TOKEN is a classic PAT with `public_repo` scope on the
+        # publishing account (RafalZG). Stored as a repo secret. The default
+        # GITHUB_TOKEN cannot be used because it can't push to a personal fork
+        # of an unrelated org's repo.
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: RafalZG.ClaudeSessionsSidekick
+          version: ${{ needs.release.outputs.version }}
+          installers-regex: 'ClaudeSessionsSidekick-win-Setup\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

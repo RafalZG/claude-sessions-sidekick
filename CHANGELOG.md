@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resume from the Session Browser. Useful for moving the bulk of your sessions
   onto a fresh model line in one click.
 
+### Infrastructure
+- Release workflow now auto-submits a manifest PR to `microsoft/winget-pkgs`
+  via `vedantmgoyal2009/winget-releaser` on every clean `vMAJOR.MINOR.PATCH`
+  tag (pre-release tags are skipped). Requires a `WINGET_TOKEN` repo secret
+  with `public_repo` scope on the publishing account.
+
 ### Fixed
 - Resume now warns when the original project folder has been deleted instead of
   silently falling back to the user-profile directory (which produced a
