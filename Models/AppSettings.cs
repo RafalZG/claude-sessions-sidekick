@@ -84,6 +84,18 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("resumeDefaultModel")]
     public string? ResumeDefaultModel { get; set; }
+
+    /// <summary>
+    /// Effort level (low/medium/high/xhigh/max) forced via <c>--effort</c> on
+    /// every resume from the Session Browser. Null = no override (Claude uses
+    /// its own default — <c>high</c> on Opus 4.7+, Sonnet 4.6+, Fable 5).
+    /// <c>ultracode</c> is deliberately not exposed here: it auto-spawns
+    /// dynamic workflows for every substantive task and is too easy to leave
+    /// on by accident, burning plan limits. Power users can still set it
+    /// inside the session via <c>/effort ultracode</c>.
+    /// </summary>
+    [JsonPropertyName("resumeEffortLevel")]
+    public string? ResumeEffortLevel { get; set; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

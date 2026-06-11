@@ -232,6 +232,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -290,6 +291,12 @@
                             <TextBlock Grid.Row="10" Grid.Column="0" Text="Resume model:" VerticalAlignment="Center" Margin="0,0,12,4"
                                        ToolTip="Force a specific Claude model via --model when resuming a session from the Session Browser.&#x0a;&#x0a;Default (no override): Claude continues with whatever was last selected in that session.&#x0a;Sonnet / Opus / Haiku: aliases, always resolved to the latest version server-side.&#x0a;&#x0a;Per-session override is also available from the Session Browser context menu (Resume with model →)."/>
                             <ComboBox x:Name="cmbResumeDefaultModel" Grid.Row="10" Grid.Column="1" Width="220"
+                                      Style="{StaticResource DarkCombo}" Margin="0,0,0,4" HorizontalAlignment="Left"
+                                      ToolTip="Applied to every resume from the Session Browser unless overridden via the row context menu."/>
+
+                            <TextBlock Grid.Row="11" Grid.Column="0" Text="Resume effort:" VerticalAlignment="Center" Margin="0,0,12,4"
+                                       ToolTip="Force a specific reasoning effort level via --effort when resuming a session.&#x0a;&#x0a;Default (no override): Claude uses its own default — `high` on Opus 4.7+, Sonnet 4.6+, Fable 5.&#x0a;low / medium: cheaper, faster, less thorough.&#x0a;high: full quality, default.&#x0a;xhigh: long-horizon agentic / coding work, meaningfully higher token usage.&#x0a;max: frontier problems only — significantly higher cost.&#x0a;&#x0a;Haiku 4.5 does not support effort and will ignore the flag.&#x0a;ultracode is not exposed here: it triggers automatic dynamic-workflow orchestration on every task, set it inside the session via /effort ultracode if you need it."/>
+                            <ComboBox x:Name="cmbResumeDefaultEffort" Grid.Row="11" Grid.Column="1" Width="220"
                                       Style="{StaticResource DarkCombo}" Margin="0,0,0,4" HorizontalAlignment="Left"
                                       ToolTip="Applied to every resume from the Session Browser unless overridden via the row context menu."/>
                         </Grid>

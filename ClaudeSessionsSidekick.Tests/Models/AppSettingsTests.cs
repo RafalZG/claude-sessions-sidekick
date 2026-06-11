@@ -39,4 +39,33 @@ public class AppSettingsTests
         Assert.NotNull(deserialized);
         Assert.Null(deserialized!.ResumeDefaultModel);
     }
+
+    // --- ResumeEffortLevel serialization ---
+
+    [Fact]
+    public void ResumeEffortLevel_DefaultsToNull()
+    {
+        Assert.Null(new AppSettings().ResumeEffortLevel);
+    }
+
+    [Fact]
+    public void ResumeEffortLevel_RoundTripsViaJson()
+    {
+        var settings = new AppSettings { ResumeEffortLevel = "xhigh" };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(settings);
+        Assert.Contains("\"resumeEffortLevel\":\"xhigh\"", json);
+
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json);
+        Assert.Equal("xhigh", deserialized!.ResumeEffortLevel);
+    }
+
+    [Fact]
+    public void ResumeEffortLevel_MissingFieldDeserializesToNull()
+    {
+        const string legacyJson = """{"resumeDefaultModel":"opus"}""";
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(legacyJson);
+        Assert.NotNull(deserialized);
+        Assert.Null(deserialized!.ResumeEffortLevel);
+    }
 }

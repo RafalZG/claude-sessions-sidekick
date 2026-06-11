@@ -21,7 +21,7 @@ public static class ClaudeLauncherService
         LaunchInShell(entry.FolderPath, claudeCmd, entry.ShellOverride);
     }
 
-    public static void LaunchResume(QuickLaunchEntry entry, string sessionId)
+    public static void LaunchResume(QuickLaunchEntry entry, string sessionId, string? effortOverride = null)
     {
         var folder = entry.FolderPath;
         if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
@@ -31,7 +31,8 @@ public static class ClaudeLauncherService
         }
 
         AppLogger.Info($"LaunchResume: sessionId={sessionId}, folder={folder}");
-        LaunchInShell(folder, $"claude --resume {sessionId}{BuildModelArg(entry.ModelOverride)}", entry.ShellOverride);
+        var args = $"claude --resume {sessionId}{BuildModelArg(entry.ModelOverride)}{BuildEffortArg(effortOverride)}";
+        LaunchInShell(folder, args, entry.ShellOverride);
     }
 
     // Cap on model override length — claude's longest documented full ID
@@ -83,6 +84,32 @@ public static class ClaudeLauncherService
         }
 
         return $" --model {trimmed}";
+    }
+
+    /// <summary>
+    /// Builds the <c>--effort X</c> suffix (with leading space) when an
+    /// override is set; otherwise returns empty. Unlike <see cref="BuildModelArg"/>
+    /// the value is checked against a small allow-list — Anthropic's effort
+    /// parameter only accepts a fixed enum and an unknown value would crash
+    /// claude on startup. <c>ultracode</c> is intentionally excluded: it
+    /// turns on automatic dynamic-workflow orchestration and isn't safe to
+    /// expose as a global default in a tray app.
+    /// </summary>
+    internal static string BuildEffortArg(string? effortOverride)
+    {
+        if (string.IsNullOrWhiteSpace(effortOverride))
+        {
+            return "";
+        }
+
+        var trimmed = effortOverride.Trim().ToLowerInvariant();
+        if (trimmed is not ("low" or "medium" or "high" or "xhigh" or "max"))
+        {
+            AppLogger.Warn($"BuildEffortArg: dropping unknown effort level '{trimmed}'");
+            return "";
+        }
+
+        return $" --effort {trimmed}";
     }
 
     public static void LaunchWithPrompt(string folderPath, string prompt)

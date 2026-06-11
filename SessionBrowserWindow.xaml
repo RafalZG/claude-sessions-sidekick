@@ -304,6 +304,20 @@
                         <MenuItem Header="Opus (1M)"   Click="MenuResumeWithModel_Click" Tag="opus"/>
                         <MenuItem Header="Haiku (200k)" Click="MenuResumeWithModel_Click" Tag="haiku"/>
                     </MenuItem>
+                    <MenuItem Header="Resume with effort"
+                              Background="#2A2A3A" Foreground="#E0E0E0">
+                        <MenuItem.Resources>
+                            <Style TargetType="MenuItem">
+                                <Setter Property="Background" Value="#2A2A3A"/>
+                                <Setter Property="Foreground" Value="#E0E0E0"/>
+                            </Style>
+                        </MenuItem.Resources>
+                        <MenuItem Header="low"    Click="MenuResumeWithEffort_Click" Tag="low"/>
+                        <MenuItem Header="medium" Click="MenuResumeWithEffort_Click" Tag="medium"/>
+                        <MenuItem Header="high"   Click="MenuResumeWithEffort_Click" Tag="high"/>
+                        <MenuItem Header="xhigh"  Click="MenuResumeWithEffort_Click" Tag="xhigh"/>
+                        <MenuItem Header="max"    Click="MenuResumeWithEffort_Click" Tag="max"/>
+                    </MenuItem>
                     <MenuItem Header="Toggle Favorite" Click="MenuToggleFavorite_Click"/>
                     <MenuItem Header="Edit Note..." Click="MenuEditNote_Click"/>
                     <MenuItem Header="Copy Session ID" Click="MenuCopyId_Click"/>

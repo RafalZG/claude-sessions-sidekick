@@ -284,4 +284,41 @@ public class ClaudeLauncherServiceTests
         var json = System.Text.Json.JsonSerializer.Serialize(entry, options);
         Assert.DoesNotContain("modelOverride", json);
     }
+
+    // --- BuildEffortArg ---
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BuildEffortArg_EmptyInput_ReturnsEmpty(string? input)
+    {
+        Assert.Equal("", ClaudeLauncherService.BuildEffortArg(input));
+    }
+
+    [Theory]
+    [InlineData("low",    " --effort low")]
+    [InlineData("medium", " --effort medium")]
+    [InlineData("high",   " --effort high")]
+    [InlineData("xhigh",  " --effort xhigh")]
+    [InlineData("max",    " --effort max")]
+    [InlineData("HIGH",   " --effort high")] // case-insensitive
+    [InlineData(" xhigh ", " --effort xhigh")] // trimmed
+    public void BuildEffortArg_KnownLevel_ReturnsFlag(string input, string expected)
+    {
+        Assert.Equal(expected, ClaudeLauncherService.BuildEffortArg(input));
+    }
+
+    [Theory]
+    [InlineData("ultracode")] // intentionally excluded — triggers workflows
+    [InlineData("extreme")]
+    [InlineData("garbage")]
+    [InlineData("max; rm -rf /")] // shell-injection attempt
+    public void BuildEffortArg_UnknownLevel_DropsAndReturnsEmpty(string input)
+    {
+        // Anything outside the allow-list is silently dropped so a corrupt
+        // settings.json can't end up emitting "claude --effort ultracode" or
+        // worse, smuggling shell metacharacters into the command line.
+        Assert.Equal("", ClaudeLauncherService.BuildEffortArg(input));
+    }
 }

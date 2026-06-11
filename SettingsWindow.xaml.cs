@@ -104,6 +104,7 @@ public partial class SettingsWindow : Window
         parts.Add(txtClaudeExe?.Text?.Trim() ?? "");
         parts.Add(txtClaudeHome?.Text?.Trim() ?? "");
         parts.Add(((cmbResumeDefaultModel?.SelectedItem as ComboBoxItem)?.Tag as string) ?? "");
+        parts.Add(((cmbResumeDefaultEffort?.SelectedItem as ComboBoxItem)?.Tag as string) ?? "");
         return string.Join(";;", parts);
     }
 
@@ -627,6 +628,7 @@ public partial class SettingsWindow : Window
         var homeDir = txtClaudeHome.Text.Trim();
         _settings.ClaudeHomeDir = string.IsNullOrEmpty(homeDir) ? null : homeDir;
         _settings.ResumeDefaultModel = (cmbResumeDefaultModel.SelectedItem as ComboBoxItem)?.Tag as string;
+        _settings.ResumeEffortLevel  = (cmbResumeDefaultEffort.SelectedItem as ComboBoxItem)?.Tag as string;
         return _settings;
     }
 
@@ -881,6 +883,23 @@ public partial class SettingsWindow : Window
             "sonnet" => 1,
             "opus"   => 2,
             "haiku"  => 3,
+            _        => 0
+        };
+
+        cmbResumeDefaultEffort.Items.Clear();
+        cmbResumeDefaultEffort.Items.Add(new ComboBoxItem { Content = "Default (no override)" });
+        cmbResumeDefaultEffort.Items.Add(new ComboBoxItem { Content = "low",    Tag = "low" });
+        cmbResumeDefaultEffort.Items.Add(new ComboBoxItem { Content = "medium", Tag = "medium" });
+        cmbResumeDefaultEffort.Items.Add(new ComboBoxItem { Content = "high (Claude default)", Tag = "high" });
+        cmbResumeDefaultEffort.Items.Add(new ComboBoxItem { Content = "xhigh (long-horizon agentic, expensive)", Tag = "xhigh" });
+        cmbResumeDefaultEffort.Items.Add(new ComboBoxItem { Content = "max (frontier only, very expensive)",     Tag = "max" });
+        cmbResumeDefaultEffort.SelectedIndex = _settings.ResumeEffortLevel switch
+        {
+            "low"    => 1,
+            "medium" => 2,
+            "high"   => 3,
+            "xhigh"  => 4,
+            "max"    => 5,
             _        => 0
         };
 

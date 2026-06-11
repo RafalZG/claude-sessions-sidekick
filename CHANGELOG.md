@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings → General → "Resume model": global default `--model` applied to every
   resume from the Session Browser. Useful for moving the bulk of your sessions
   onto a fresh model line in one click.
+- Settings → General → "Resume effort": global default `--effort` (low / medium
+  / high / xhigh / max) applied to every resume, plus a per-session
+  "Resume with effort →" submenu in the Session Browser context menu.
+  `ultracode` is intentionally not exposed — it auto-triggers dynamic-workflow
+  orchestration on every substantive task and is too easy to leave on by
+  accident. Power users can still set it inside the session via
+  `/effort ultracode`.
 - Session Browser: warn before resuming a session that already has a running
   `claude --resume {id}` process attached to it. Two concurrent claude windows
   on the same session JSONL diverge silently and can corrupt the file —
