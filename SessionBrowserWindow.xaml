@@ -288,7 +288,18 @@
                     <MenuItem Header="Resume Session" Click="BtnResume_Click"/>
                     <MenuItem Header="Resume with model"
                               Background="#2A2A3A" Foreground="#E0E0E0">
-                        <MenuItem Header="Default (no override)" Click="MenuResumeWithModel_Click"/>
+                        <!-- The submenu Popup does not inherit Background /
+                             Foreground from the parent ContextMenu, so items
+                             would render in the system default light theme
+                             and look "disabled" against the dark sidekick UI.
+                             Styling MenuItem here via Resources is the
+                             least-invasive fix. -->
+                        <MenuItem.Resources>
+                            <Style TargetType="MenuItem">
+                                <Setter Property="Background" Value="#2A2A3A"/>
+                                <Setter Property="Foreground" Value="#E0E0E0"/>
+                            </Style>
+                        </MenuItem.Resources>
                         <MenuItem Header="Sonnet (1M)" Click="MenuResumeWithModel_Click" Tag="sonnet"/>
                         <MenuItem Header="Opus (1M)"   Click="MenuResumeWithModel_Click" Tag="opus"/>
                         <MenuItem Header="Haiku (200k)" Click="MenuResumeWithModel_Click" Tag="haiku"/>

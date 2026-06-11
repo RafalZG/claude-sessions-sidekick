@@ -1006,9 +1006,10 @@ public partial class SessionBrowserWindow : Window
         {
             return;
         }
-        // No Tag (= "Default (no override)") means resume without --model,
-        // bypassing whatever global ResumeDefaultModel is set. Tag values
-        // ("sonnet"/"opus"/"haiku") force that alias for this launch only.
+        // Each submenu item carries an alias as its Tag ("sonnet"/"opus"/"haiku")
+        // and forces that alias for this one launch, bypassing whatever the
+        // global ResumeDefaultModel is set to. Users who want the global
+        // default applied use the main "Resume Session" item instead.
         var tag = mi.Tag as string;
         LaunchResumeForSelected(string.IsNullOrEmpty(tag) ? null : tag);
     }
