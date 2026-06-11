@@ -993,12 +993,17 @@ public partial class SessionBrowserWindow : Window
 
     private void ResumeSelected()
     {
-        // Default path: apply the global "Resume model" / "Resume effort"
-        // settings (null = no flag for that knob). Per-session overrides come
-        // in via the context menu submenus, which call LaunchResumeForSelected
-        // directly with an explicit value for one of the two knobs.
-        var s = SettingsService.Load();
-        LaunchResumeForSelected(s.ResumeDefaultModel, s.ResumeEffortLevel);
+        // Default path: never override the model on resume — the global
+        // "force this alias on every resume" setting was dropped in 1.0.1
+        // because it silently downgraded users' intentional Sonnet/Haiku
+        // sessions when they picked Opus as a default. Model overrides are
+        // now strictly per-session via the "Resume with model →" submenu.
+        // The effort knob keeps its global default — effort is purely about
+        // cost / latency budget and re-applying the user's preferred budget
+        // on every resume matches what they asked for.
+        LaunchResumeForSelected(
+            modelOverride: null,
+            effortOverride: SettingsService.Load().ResumeEffortLevel);
     }
 
     private void MenuResumeWithModel_Click(object sender, RoutedEventArgs e)
@@ -1008,10 +1013,8 @@ public partial class SessionBrowserWindow : Window
             return;
         }
         // Each submenu item carries an alias as its Tag ("sonnet"/"opus"/"haiku")
-        // and forces that alias for this one launch, bypassing whatever the
-        // global ResumeDefaultModel is set to. The effort knob stays on the
-        // global setting — picking a one-off model shouldn't silently un-set
-        // the user's preferred effort level.
+        // and forces that alias for this one launch. Effort still picks up
+        // the user's global effort default — they're orthogonal knobs.
         var tag = mi.Tag as string;
         LaunchResumeForSelected(
             modelOverride: string.IsNullOrEmpty(tag) ? null : tag,
@@ -1025,11 +1028,11 @@ public partial class SessionBrowserWindow : Window
             return;
         }
         // Mirror of MenuResumeWithModel_Click for the effort knob: explicit
-        // per-session pick overrides the global ResumeEffortLevel, and the
-        // model knob stays on the global setting.
+        // per-session pick overrides the global ResumeEffortLevel. No model
+        // override (matches plain Resume Session).
         var tag = mi.Tag as string;
         LaunchResumeForSelected(
-            modelOverride: SettingsService.Load().ResumeDefaultModel,
+            modelOverride: null,
             effortOverride: string.IsNullOrEmpty(tag) ? null : tag);
     }
 

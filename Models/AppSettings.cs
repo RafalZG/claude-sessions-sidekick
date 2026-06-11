@@ -77,15 +77,6 @@ public class AppSettings
     public string? ClaudeHomeDir { get; set; }
 
     /// <summary>
-    /// Alias (sonnet/opus/haiku) or full ID forced via <c>--model</c> on every
-    /// resume from the Session Browser. Lets users park older sessions on a
-    /// newer model without having to <c>/model</c> after every resume.
-    /// Null = no override (Claude continues with whatever was last selected).
-    /// </summary>
-    [JsonPropertyName("resumeDefaultModel")]
-    public string? ResumeDefaultModel { get; set; }
-
-    /// <summary>
     /// Effort level (low/medium/high/xhigh/max) forced via <c>--effort</c> on
     /// every resume from the Session Browser. Null = no override (Claude uses
     /// its own default — <c>high</c> on Opus 4.7+, Sonnet 4.6+, Fable 5).

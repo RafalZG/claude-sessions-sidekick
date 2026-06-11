@@ -10,10 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Session Browser: per-session model override via "Resume with model →" submenu
   (Sonnet / Opus / Haiku). Lets you park an older session on a newer model
-  alias without having to `/model` after resume.
-- Settings → General → "Resume model": global default `--model` applied to every
-  resume from the Session Browser. Useful for moving the bulk of your sessions
-  onto a fresh model line in one click.
+  alias without having to `/model` after resume. Each pick is one-off; the
+  next plain Resume Session goes back to whatever the session was using.
 - Settings → General → "Resume effort": global default `--effort` (low / medium
   / high / xhigh / max) applied to every resume, plus a per-session
   "Resume with effort →" submenu in the Session Browser context menu.

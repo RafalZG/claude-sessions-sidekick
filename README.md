@@ -70,7 +70,7 @@ The session list is meant to be a **journal** — a searchable, color-coded reco
 | Situation | Action |
 |---|---|
 | Same task, picking up within ~a day | **Resume** (double-click the session) |
-| Sessions started on an older model line you want to migrate forward | **Resume with model →** (right-click a row) or set a global default in Settings → "Resume model" |
+| Sessions started on an older model line you want to migrate forward | **Resume with model →** (right-click a row) — picks the alias for that one launch |
 | Same task, but the session feels bloated or `/compact` warnings are firing | **`/compact`** inside the session, then keep going |
 | New task or new problem | **Start fresh** — don't pay for last week's context every turn |
 | Long-running project spanning weeks | Periodic `/compact` + a short "status: done X, next Y" snapshot at the top of each new session |
