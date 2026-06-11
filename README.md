@@ -61,6 +61,28 @@ Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no ba
 - View detected Claude Code installation, model defaults, MCP servers per project
 - Block/install MCP servers across projects
 
+## Working with saved sessions
+
+The session list is meant to be a **journal** — a searchable, color-coded record of past Claude Code work — not a place to live in one ever-growing conversation. Notes, color tags, and favorites are here so you can recognize a session and decide what to do *next*; they're not arguments for keeping a 500-turn session alive forever.
+
+### When to resume, compact, or start fresh
+
+| Situation | Action |
+|---|---|
+| Same task, picking up within ~a day | **Resume** (double-click the session) |
+| Sessions started on an older model line you want to migrate forward | **Resume with model →** (right-click a row) or set a global default in Settings → "Resume model" |
+| Same task, but the session feels bloated or `/compact` warnings are firing | **`/compact`** inside the session, then keep going |
+| New task or new problem | **Start fresh** — don't pay for last week's context every turn |
+| Long-running project spanning weeks | Periodic `/compact` + a short "status: done X, next Y" snapshot at the top of each new session |
+
+### Why long sessions aren't free
+
+- **Cache TTL is ~5 minutes.** A session you come back to hours later pays full input on the next turn regardless of how active it was earlier — there's no "warm session" benefit.
+- **Every turn re-processes the full history.** A 100k-token session pays for 100k input on every reply, even for a one-line fix.
+- **Compact ≠ free.** Compacting trims to ~5–20k of summary; baseline per turn drops from ~100k+ to ~10–30k. Fresh starts at ~5–10k. On Opus that's roughly $0.05–0.10 per turn difference between compacted-vs-fresh, and an order of magnitude between bloated-vs-compacted.
+
+The session browser exists so you can quickly find the right anchor for *new* work — scroll, recognize "ah, that's the migration thread from two weeks ago", grab the context you need (or just remind yourself of the next step), and then either resume briefly or open a fresh session with a one-line status snapshot. That's the workflow notes / colors / favorites are designed for.
+
 ## Requirements
 
 - Windows 10 (build 19041 / May 2020 Update) or newer / Windows 11
