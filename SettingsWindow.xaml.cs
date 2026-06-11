@@ -51,7 +51,14 @@ public partial class SettingsWindow : Window
             @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false))
         {
             var val = regKey?.GetValue("ClaudeSessionsSidekick_Hotkey");
-            shortcutsDisabled = val is not int intVal || intVal != 1;
+            // Must mirror MainWindow.IsHotkeyEnabled exactly: missing registry
+            // value means "first run" and hotkeys are actually registered on
+            // startup. The old polarity here showed a scary "Shortcuts disabled
+            // — enable via tray menu" warning to fresh users even though
+            // hotkeys were working — they then toggled the tray menu and
+            // wrote "1" to silence the warning, which was a no-op since
+            // hotkeys were already on.
+            shortcutsDisabled = val is int intVal && intVal != 1;
             if (shortcutsDisabled)
             {
                 txtShortcutsWarning.Visibility = Visibility.Visible;

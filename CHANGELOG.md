@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `public_repo` scope on the publishing account.
 
 ### Fixed
+- Settings window no longer shows the "Shortcuts are currently disabled —
+  enable via tray menu" warning on a fresh install. The detection check
+  treated a missing registry value as "disabled", but `MainWindow.IsHotkeyEnabled`
+  (the canonical source) treats it as "enabled (first run)" and actually
+  registers the hotkeys on startup. Fresh users saw a scary yellow warning
+  and were told to flip a tray-menu toggle that did nothing because hotkeys
+  were already on.
 - Resume now warns when the original project folder has been deleted instead of
   silently falling back to the user-profile directory (which produced a
   confusing "No conversation found" error from `claude --resume`). The new
