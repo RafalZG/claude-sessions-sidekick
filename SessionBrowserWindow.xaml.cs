@@ -1050,9 +1050,9 @@ public partial class SessionBrowserWindow : Window
         {
             var ok = ConfirmDialog.Show(
                 "Session already open",
-                $"A claude window is already resuming \"{vm.Topic}\". " +
+                $"A claude window is already resuming \"{vm.Topic}\".\n\n" +
                 "Opening a second instance can corrupt the session file " +
-                "because both processes will append to the same JSONL. " +
+                "because both processes will append to the same JSONL.\n\n" +
                 "Continue anyway?",
                 "Continue",
                 this);
