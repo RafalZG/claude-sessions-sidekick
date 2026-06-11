@@ -147,32 +147,44 @@ public sealed class LowLevelKeyboardHook : IDisposable
         _lastTriggeredVk = 0;
     }
 
+    // LLKHF_INJECTED is set on synthetic key events (SendKeys, scripting tools,
+    // RDP redirection, accessibility software, AutoHotkey, etc.). We don't want
+    // those to drive our hotkey state — they can desync tracked modifier state
+    // vs. OS state and produce spurious "everything triggers a hotkey" symptoms.
+    private const uint LLKHF_INJECTED = 0x10;
+
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
         if (nCode >= 0)
         {
             var kbd = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-            var msg = wParam.ToInt32();
-            var isDown = msg is WM_KEYDOWN or WM_SYSKEYDOWN;
-            var isUp = msg is WM_KEYUP or WM_SYSKEYUP;
 
-            if (isDown || isUp)
+            // Skip injected events early — still forward through the chain so
+            // other hooks (and the OS) handle them normally.
+            if ((kbd.flags & LLKHF_INJECTED) == 0)
             {
-                if (UpdateModifierState(kbd.vkCode, isDown, kbd.flags))
+                var msg = wParam.ToInt32();
+                var isDown = msg is WM_KEYDOWN or WM_SYSKEYDOWN;
+                var isUp = msg is WM_KEYUP or WM_SYSKEYUP;
+
+                if (isDown || isUp)
                 {
-                    // Was a modifier key — don't check bindings
-                }
-                else if (isDown)
-                {
-                    CheckBindings(kbd.vkCode);
-                }
-                else
-                {
-                    // Key up for a non-modifier — clear debounce
-                    if (kbd.vkCode == _lastTriggeredVk)
+                    if (UpdateModifierState(kbd.vkCode, isDown, kbd.flags))
                     {
-                        _lastTriggeredId = 0;
-                        _lastTriggeredVk = 0;
+                        // Was a modifier key — don't check bindings
+                    }
+                    else if (isDown)
+                    {
+                        CheckBindings(kbd.vkCode);
+                    }
+                    else
+                    {
+                        // Key up for a non-modifier — clear debounce
+                        if (kbd.vkCode == _lastTriggeredVk)
+                        {
+                            _lastTriggeredId = 0;
+                            _lastTriggeredVk = 0;
+                        }
                     }
                 }
             }
@@ -242,11 +254,30 @@ public sealed class LowLevelKeyboardHook : IDisposable
 
     private void CheckBindings(uint vk)
     {
-        // Use actual OS key state instead of tracked state to prevent stuck modifiers.
-        // Tracked state can get stale when key-up events are missed (focus change,
-        // Win key handled by shell, hotkey opening a new window).
+        // Two independent sources for modifier state:
+        //   _modifiers      — what WE'VE SEEN via hook callbacks (down/up events)
+        //   actualModifiers — what the OS reports right now (GetAsyncKeyState)
+        //
+        // Each source has its own failure mode:
+        //   - Tracked state can get stale when keyup events are missed (e.g. hook
+        //     temporarily disabled by Windows after a slow callback, focus
+        //     change interrupting an Alt+Tab modifier release).
+        //   - OS state can get stuck in a wrong "modifier is down" reading from
+        //     glitchy keyboard drivers, RDP injection, accessibility tools, or
+        //     a key that physically doesn't break clean (Ewa's symptom: random
+        //     letter presses fire shortcuts because the OS thinks Win+Alt is
+        //     held even though they're not).
+        //
+        // Requiring BOTH sources to agree before firing catches either failure
+        // mode at the cost of a false negative in the narrow case where the
+        // user was already holding a modifier when our hook installed —
+        // recoverable by releasing and re-pressing the modifier once.
         var actualModifiers = GetActualModifierState();
-        _modifiers = actualModifiers; // sync tracked state
+
+        if (_modifiers != actualModifiers)
+        {
+            return;
+        }
 
         lock (_lock)
         {
@@ -257,7 +288,6 @@ public sealed class LowLevelKeyboardHook : IDisposable
                     continue;
                 }
 
-                // Exact modifier match using real-time OS state
                 if (actualModifiers != binding.RequiredModifiers)
                 {
                     continue;

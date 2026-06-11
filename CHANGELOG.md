@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `public_repo` scope on the publishing account.
 
 ### Fixed
+- Random key presses no longer fire global hotkeys when the OS reports a
+  stuck modifier state. The hook used to trust `GetAsyncKeyState` alone,
+  so a glitchy keyboard driver / RDP key injection / physical key that
+  doesn't break clean would convince it that Win+Alt was held — every
+  letter that matched a bound key would then trigger that shortcut. The
+  hook now requires both tracked state (built from observed keydown/keyup
+  events) and OS state to agree before firing, catching either failure
+  mode. Also ignores injected (synthetic) key events so AutoHotkey-style
+  tools don't drive our modifier tracking.
 - Settings window no longer shows the "Shortcuts are currently disabled —
   enable via tray menu" warning on a fresh install. The detection check
   treated a missing registry value as "disabled", but `MainWindow.IsHotkeyEnabled`
