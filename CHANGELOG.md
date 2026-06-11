@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   registers the hotkeys on startup. Fresh users saw a scary yellow warning
   and were told to flip a tray-menu toggle that did nothing because hotkeys
   were already on.
+- Disabling hotkeys via the tray menu now persists across app restarts.
+  The previous implementation deleted the registry value on disable, which
+  collapsed back into the "first run = enabled" branch on the next startup —
+  hotkeys would silently re-register every time the user reopened the app.
+  Disable now writes `0` explicitly so the three states (missing / 1 / 0)
+  map cleanly to first-run / user-enabled / user-disabled.
 - Resume now warns when the original project folder has been deleted instead of
   silently falling back to the user-profile directory (which produced a
   confusing "No conversation found" error from `claude --resume`). The new

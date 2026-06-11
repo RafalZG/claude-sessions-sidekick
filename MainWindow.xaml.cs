@@ -443,7 +443,15 @@ public partial class MainWindow : Window
         }
         else
         {
-            key.DeleteValue(HotkeyValueName, false);
+            // Store 0 (not "delete") so the choice persists across restarts.
+            // IsHotkeyEnabled distinguishes three states:
+            //   missing → first run → enabled
+            //   1       → user enabled → enabled
+            //   0       → user disabled → disabled
+            // Deleting the value would collapse "user disabled" back into
+            // "first run" on the next startup, silently re-registering the
+            // hotkeys the user just turned off.
+            key.SetValue(HotkeyValueName, 0, RegistryValueKind.DWord);
             UnregisterAllHotkeys();
             UnregisterQuickLaunchHotkeys();
         }
