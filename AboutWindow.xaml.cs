@@ -14,6 +14,7 @@ public partial class AboutWindow : Window
     private const string IssuesUrl = $"https://github.com/{GitHubRepo}/issues/new";
     private const string ReleasesUrl = $"https://github.com/{GitHubRepo}/releases";
     private const string ChangelogUrl = $"https://github.com/{GitHubRepo}/blob/main/CHANGELOG.md";
+    private const string ReadmeUrl = $"https://github.com/{GitHubRepo}#readme";
     private const string VibeCodingUrl = "https://en.wikipedia.org/wiki/Vibe_coding";
 
     public AboutWindow()
@@ -63,6 +64,7 @@ public partial class AboutWindow : Window
     private void LnkGitHub_Click(object sender, MouseButtonEventArgs e) => OpenUrl(GitHubUrl);
     private void LnkIssues_Click(object sender, MouseButtonEventArgs e) => OpenUrl(IssuesUrl);
     private void LnkChangelog_Click(object sender, MouseButtonEventArgs e) => OpenUrl(ChangelogUrl);
+    private void LnkReadme_Click(object sender, MouseButtonEventArgs e) => OpenUrl(ReadmeUrl);
     private void LnkReleases_Click(object sender, MouseButtonEventArgs e) => OpenUrl(ReleasesUrl);
 
     private void LnkVibeCoding_Click(object sender, RoutedEventArgs e)

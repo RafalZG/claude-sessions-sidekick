@@ -112,6 +112,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="&#x2605;" FontSize="13"
@@ -141,10 +142,19 @@
                            MouseLeftButtonDown="LnkChangelog_Click"
                            ToolTip="View release notes for past versions"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="&#x25C9;" FontSize="13"
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="&#x24D8;" FontSize="13"
+                           Foreground="#A0B0FF" VerticalAlignment="Center" Margin="0,0,0,6"
+                           ToolTip="Documentation — README on GitHub"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="lnkReadme" Text="Documentation (README)" FontSize="12"
+                           Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
+                           VerticalAlignment="Center" Margin="0,0,0,6"
+                           MouseLeftButtonDown="LnkReadme_Click"
+                           ToolTip="View feature overview, install instructions, and the &quot;Working with saved sessions&quot; guide"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="&#x25C9;" FontSize="13"
                            Foreground="#A0B0FF" VerticalAlignment="Center"
                            ToolTip="Releases"/>
-                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="lnkReleases" Text="All releases" FontSize="12"
+                <TextBlock Grid.Row="4" Grid.Column="1" x:Name="lnkReleases" Text="All releases" FontSize="12"
                            Foreground="#6EA8FF" Cursor="Hand" TextDecorations="Underline"
                            VerticalAlignment="Center"
                            MouseLeftButtonDown="LnkReleases_Click"
