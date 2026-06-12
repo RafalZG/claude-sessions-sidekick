@@ -152,6 +152,11 @@
             <Setter Property="Background" Value="#2A2A3A"/>
             <Setter Property="Foreground" Value="#E0E0E0"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <!-- Critical: without this, WPF keeps the default MenuItem style's
+                 role-based triggers active and they re-wrap our template with
+                 the system-themed icon gutter, leaving a thin light strip on
+                 the left of submenu-header items. -->
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
@@ -219,6 +224,11 @@
             <Setter Property="Background" Value="#2A2A3A"/>
             <Setter Property="Foreground" Value="#E0E0E0"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <!-- Critical: without this, WPF keeps the default MenuItem style's
+                 role-based triggers active and they re-wrap our template with
+                 the system-themed icon gutter, leaving a thin light strip on
+                 the left of submenu-header items. -->
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
