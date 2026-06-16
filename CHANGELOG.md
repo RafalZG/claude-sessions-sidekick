@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-06-16
+
 ### Added
 - Session Browser: per-session model override via "Resume with model →" submenu
   (Sonnet / Opus / Haiku). Lets you park an older session on a newer model
