@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1.1] — 2026-06-16
+
+### Fixed
+- Tray widget no longer reports `~120% — Consider /compact now` on sessions
+  that are well within their context window. `IsReducedContextModel` still
+  flagged the bare `opus` and `sonnet` aliases as 200k-context (a holdover
+  from the Claude 4.5 / 3.x era), so users with `"model": "opus"` in
+  `settings.json` saw the widget claim 240k / 200k on what is actually a
+  1M-token session — Opus 4.7+ / Sonnet 4.6+ aliases all resolve to 1M
+  variants now. Only `haiku` still maps to a 200k model. Explicit legacy
+  IDs (`claude-sonnet-4-5*`, `claude-3-*`) continue to match the
+  reduced-context branch.
+
 ## [1.0.1] — 2026-06-16
 
 ### Added
