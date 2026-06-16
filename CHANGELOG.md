@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.1.1] — 2026-06-16
+## [1.0.2] — 2026-06-16
 
 ### Fixed
 - Tray widget no longer reports `~120% — Consider /compact now` on sessions
