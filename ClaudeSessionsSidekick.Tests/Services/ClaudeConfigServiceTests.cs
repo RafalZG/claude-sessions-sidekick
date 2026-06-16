@@ -378,4 +378,38 @@ public class ClaudeConfigServiceTests
             Assert.Contains("Body with CRLF", entry.Body);
         }
     }
+
+    // ── IsReducedContextModel ──────────────────────────────────────
+    // Locks in the alias → context-window mapping after the Opus 4.8 launch:
+    // opus / sonnet aliases now resolve to 1M models, only haiku still 200k.
+
+    public class IsReducedContextModelTests
+    {
+        [Theory]
+        [InlineData("haiku")] // Haiku 4.5 — still 200k
+        [InlineData("claude-sonnet-4-5")] // legacy 200k by explicit ID
+        [InlineData("claude-sonnet-4-5-20250929")]
+        [InlineData("claude-3-5-sonnet-20241022")]
+        [InlineData("claude-3-opus-20240229")]
+        [InlineData("claude-3-haiku-20240307")]
+        public void Reduced_ReturnsTrue(string model)
+        {
+            Assert.True(ClaudeConfigService.IsReducedContextModel(model));
+        }
+
+        [Theory]
+        [InlineData("opus")]   // alias → Opus 4.8 = 1M
+        [InlineData("sonnet")] // alias → Sonnet 4.6 = 1M
+        [InlineData("claude-opus-4-8")]
+        [InlineData("claude-opus-4-7")]
+        [InlineData("claude-opus-4-6")]
+        [InlineData("claude-sonnet-4-6")]
+        [InlineData("claude-fable-5")]
+        [InlineData(null)]
+        [InlineData("")]
+        public void NotReduced_ReturnsFalse(string? model)
+        {
+            Assert.False(ClaudeConfigService.IsReducedContextModel(model));
+        }
+    }
 }

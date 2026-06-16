@@ -89,12 +89,17 @@ public static class ClaudeConfigService
     }
 
     /// <summary>
-    /// Returns true if the configured model is a shorthand (e.g. "opus", "sonnet")
-    /// that may resolve to a model with a smaller context window than the latest version.
-    /// </summary>
-    /// <summary>
-    /// Returns true if the configured model will use a context window smaller than 1M.
-    /// This includes shorthands ("opus") and explicit old model IDs with 200k context.
+    /// Returns true if the configured model will use a context window smaller
+    /// than 1M. The set of aliases that map to a reduced context window
+    /// changed when Opus 4.7 / Sonnet 4.6 launched — current aliases resolve
+    /// server-side as follows (per Anthropic's model catalog):
+    ///   opus    → Opus 4.8       → 1M context
+    ///   sonnet  → Sonnet 4.6     → 1M context
+    ///   haiku   → Haiku 4.5      → 200k context
+    /// Only the haiku family is still 200k; opus / sonnet shorthands now
+    /// resolve to 1M variants and reporting 200k for them produces false
+    /// "120% — /compact now" warnings in the tray widget on legitimately
+    /// large sessions.
     /// </summary>
     public static bool IsReducedContextModel(string? configuredModel)
     {
@@ -103,13 +108,13 @@ public static class ClaudeConfigService
             return false;
         }
 
-        // Shorthands resolve server-side, typically to 200k models
-        if (configuredModel is "opus" or "sonnet" or "haiku")
+        // Only haiku shorthand still resolves to a 200k model.
+        if (configuredModel == "haiku")
         {
             return true;
         }
 
-        // Explicit old model IDs with 200k context (not the 4.6 generation)
+        // Explicit old model IDs with 200k context (pre-4.6 generation).
         if (configuredModel.Contains("4-5") || configuredModel.Contains("3-5") ||
             configuredModel.Contains("3-opus") || configuredModel.Contains("3-sonnet") ||
             configuredModel.Contains("3-haiku"))
