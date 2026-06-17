@@ -117,9 +117,18 @@ jobs:
         # publishing account (RafalZG). Stored as a repo secret. The default
         # GITHUB_TOKEN cannot be used because it can't push to a personal fork
         # of an unrelated org's repo.
-        uses: vedantmgoyal2009/winget-releaser@v2
+        #
+        # Pinned to a `main`-branch SHA (2026-03-15) instead of the `v2` tag
+        # because v2 (2025-01-27) predates the `release-notes-url` input. Without
+        # that input wingetbot's Manifest-Metadata-Consistency check fails every
+        # release — the 1.0.0 locale.yaml carries ReleaseNotesUrl, so every
+        # subsequent version must too, and komac only emits the field when
+        # `--release-notes-url` is passed. We hit this on v1.0.2 and had to
+        # manually edit the PR-branch locale.yaml to unblock the merge.
+        uses: vedantmgoyal2009/winget-releaser@7bd472be23763def6e16bd06cc8b1cdfab0e2fd5
         with:
           identifier: RafalZG.ClaudeSessionsSidekick
           version: ${{ needs.release.outputs.version }}
           installers-regex: 'ClaudeSessionsSidekick-win-Setup\.exe$'
+          release-notes-url: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v${{ needs.release.outputs.version }}
           token: ${{ secrets.WINGET_TOKEN }}
