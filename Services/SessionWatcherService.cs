@@ -382,7 +382,12 @@ public class SessionWatcherService : IDisposable
         return false;
     }
 
-    private static string ExtractProjectName(string filePath)
+    // Exposed `internal` so the test suite can pin down the
+    // project-key collision shape Ewa hit ("active session header shows
+    // different session" — two distinct real folders that encode to keys
+    // whose last two dash-segments are identical end up sharing a
+    // ProjectName, so the header can land on either one).
+    internal static string ExtractProjectName(string filePath)
     {
         // Path: .../projects/D--Projects-MyApp-Main/session.jsonl
         var dir = Path.GetFileName(Path.GetDirectoryName(filePath)) ?? "";
