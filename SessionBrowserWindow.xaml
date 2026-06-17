@@ -141,113 +141,6 @@
                       Click="MenuRestoreLayout_Click"/>
         </ContextMenu>
 
-        <!-- Dark theme for context-menu items that own a submenu (e.g. "Resume
-             with model →"). The default WPF MenuItem template draws a light
-             icon gutter on the left of header items and a light Border around
-             the submenu Popup, both ignoring the parent ContextMenu's Background
-             / BorderBrush settings. We override the full template here so the
-             header item, the popup container, and the children all render in
-             the same dark palette as the parent context menu. -->
-        <Style x:Key="DarkSubmenuHeader" TargetType="MenuItem">
-            <Setter Property="Background" Value="#2A2A3A"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <!-- Critical: without this, WPF keeps the default MenuItem style's
-                 role-based triggers active and they re-wrap our template with
-                 the system-themed icon gutter, leaving a thin light strip on
-                 the left of submenu-header items. -->
-            <Setter Property="OverridesDefaultStyle" Value="True"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="MenuItem">
-                        <!-- Padding matches the default WPF context-menu item
-                             metric (~22 left for the icon-gutter slot, ~6 top/
-                             bottom, ~16 right so the submenu arrow has visible
-                             breathing room before the right edge). Without
-                             this, the cropped padding made "Resume with
-                             model →" rows look cramped next to the default
-                             items below them. -->
-                        <Border x:Name="root" Background="{TemplateBinding Background}"
-                                BorderThickness="0" Padding="22,6,16,6">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <ContentPresenter Grid.Column="0"
-                                                  ContentSource="Header"
-                                                  RecognizesAccessKey="True"
-                                                  VerticalAlignment="Center"
-                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
-                                <!-- Glyph instead of a Path: scales with the
-                                     item font, picks up the same Foreground
-                                     hue as the header, and reads as a
-                                     submenu indicator at any DPI. -->
-                                <TextBlock Grid.Column="1" Text="&#x25B8;"
-                                           Margin="20,0,0,0"
-                                           FontSize="10"
-                                           VerticalAlignment="Center"
-                                           Foreground="#A0B0FF"/>
-                                <Popup x:Name="popup" Placement="Right"
-                                       IsOpen="{TemplateBinding IsSubmenuOpen}"
-                                       AllowsTransparency="True"
-                                       PopupAnimation="Fade" Focusable="False"
-                                       HorizontalOffset="-2" VerticalOffset="-3">
-                                    <!-- Matches the parent ContextMenu's outer
-                                         Border (Background #2A2A3A, Border
-                                         #40606080) so the submenu visually
-                                         extends the same surface. -->
-                                    <Border Background="#2A2A3A"
-                                            BorderBrush="#40606080"
-                                            BorderThickness="1"
-                                            Padding="2">
-                                        <StackPanel IsItemsHost="True"/>
-                                    </Border>
-                                </Popup>
-                            </Grid>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="root" Property="Background" Value="#3A3A5A"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Children of a DarkSubmenuHeader. Same dark colors, no submenu
-             arrow, no icon gutter; selection background matches the parent
-             header's hover color so navigation by keyboard or mouse is
-             consistent. -->
-        <Style x:Key="DarkSubmenuItem" TargetType="MenuItem">
-            <Setter Property="Background" Value="#2A2A3A"/>
-            <Setter Property="Foreground" Value="#E0E0E0"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <!-- Critical: without this, WPF keeps the default MenuItem style's
-                 role-based triggers active and they re-wrap our template with
-                 the system-themed icon gutter, leaving a thin light strip on
-                 the left of submenu-header items. -->
-            <Setter Property="OverridesDefaultStyle" Value="True"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="MenuItem">
-                        <Border x:Name="root" Background="{TemplateBinding Background}"
-                                BorderThickness="0" Padding="22,6,22,6">
-                            <ContentPresenter ContentSource="Header"
-                                              RecognizesAccessKey="True"
-                                              VerticalAlignment="Center"
-                                              TextElement.Foreground="{TemplateBinding Foreground}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="root" Property="Background" Value="#3A3A5A"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
 
     <Grid Margin="16">
@@ -393,28 +286,125 @@
 
             <DataGrid.ContextMenu>
                 <ContextMenu Background="#2A2A3A" BorderBrush="#40606080" Foreground="#E0E0E0">
+                    <!-- Three implicit styles — ContextMenu itself, MenuItem,
+                         and Separator — all re-templated end to end. Why
+                         all three instead of just MenuItem: the default
+                         WPF ContextMenu chrome draws its own outer frame
+                         and inner panel that paint the gutter / column
+                         backgrounds independently of any per-item style,
+                         so per-item dark styling alone leaves the chrome
+                         showing through (the wide light strip we kept
+                         seeing on Separators and item gutters). Replacing
+                         the ContextMenu's Template removes that chrome
+                         entirely; what's left is a plain Border + items,
+                         and the per-item templates have full control. -->
+                    <ContextMenu.Resources>
+                        <Style TargetType="{x:Type ContextMenu}">
+                            <Setter Property="OverridesDefaultStyle" Value="True"/>
+                            <Setter Property="SnapsToDevicePixels" Value="True"/>
+                            <Setter Property="Background" Value="#2A2A3A"/>
+                            <Setter Property="BorderBrush" Value="#40606080"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                            <Setter Property="Foreground" Value="#E0E0E0"/>
+                            <Setter Property="Padding" Value="2"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type ContextMenu}">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                Padding="{TemplateBinding Padding}">
+                                            <StackPanel IsItemsHost="True"
+                                                        KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+
+                        <Style TargetType="{x:Type MenuItem}">
+                            <Setter Property="OverridesDefaultStyle" Value="True"/>
+                            <Setter Property="Background" Value="#2A2A3A"/>
+                            <Setter Property="Foreground" Value="#E0E0E0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type MenuItem}">
+                                        <Border x:Name="root" Background="{TemplateBinding Background}"
+                                                BorderThickness="0" Padding="10,5">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Grid.Column="0"
+                                                                  ContentSource="Header"
+                                                                  RecognizesAccessKey="True"
+                                                                  VerticalAlignment="Center"
+                                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
+                                                <TextBlock x:Name="arrow" Grid.Column="1"
+                                                           Text="&#x25B8;" Margin="16,0,0,0"
+                                                           FontSize="10" VerticalAlignment="Center"
+                                                           Foreground="#A0B0FF"
+                                                           Visibility="Collapsed"/>
+                                                <Popup x:Name="popup" Placement="Right"
+                                                       IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                                       AllowsTransparency="True"
+                                                       PopupAnimation="Fade" Focusable="False"
+                                                       HorizontalOffset="-2" VerticalOffset="-3">
+                                                    <Border Background="#2A2A3A"
+                                                            BorderBrush="#40606080"
+                                                            BorderThickness="1" Padding="2">
+                                                        <StackPanel IsItemsHost="True"/>
+                                                    </Border>
+                                                </Popup>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsHighlighted" Value="True">
+                                                <Setter TargetName="root" Property="Background" Value="#3A3A5A"/>
+                                            </Trigger>
+                                            <Trigger Property="Role" Value="SubmenuHeader">
+                                                <Setter TargetName="arrow" Property="Visibility" Value="Visible"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+
+                        <!-- Keyed via MenuItem.SeparatorStyleKey. WPF's
+                             MenuItem container only resolves Separator
+                             children through this specific keyed resource
+                             — implicit Style on TargetType=Separator is
+                             silently skipped in this scope. -->
+                        <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}"
+                               TargetType="{x:Type Separator}">
+                            <Setter Property="OverridesDefaultStyle" Value="True"/>
+                            <Setter Property="Background" Value="#3A3A4A"/>
+                            <Setter Property="Height" Value="1"/>
+                            <Setter Property="Margin" Value="0,4"/>
+                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type Separator}">
+                                        <Border Background="{TemplateBinding Background}"/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ContextMenu.Resources>
                     <MenuItem Header="Resume Session" Click="BtnResume_Click"/>
-                    <MenuItem Header="Resume with model"
-                              Style="{StaticResource DarkSubmenuHeader}">
-                        <MenuItem Header="Sonnet (1M)" Click="MenuResumeWithModel_Click" Tag="sonnet"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
-                        <MenuItem Header="Opus (1M)"   Click="MenuResumeWithModel_Click" Tag="opus"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
-                        <MenuItem Header="Haiku (200k)" Click="MenuResumeWithModel_Click" Tag="haiku"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
+                    <MenuItem Header="Resume with model">
+                        <MenuItem Header="Sonnet (1M)" Click="MenuResumeWithModel_Click" Tag="sonnet"/>
+                        <MenuItem Header="Opus (1M)"   Click="MenuResumeWithModel_Click" Tag="opus"/>
+                        <MenuItem Header="Haiku (200k)" Click="MenuResumeWithModel_Click" Tag="haiku"/>
                     </MenuItem>
-                    <MenuItem Header="Resume with effort"
-                              Style="{StaticResource DarkSubmenuHeader}">
-                        <MenuItem Header="low"    Click="MenuResumeWithEffort_Click" Tag="low"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
-                        <MenuItem Header="medium" Click="MenuResumeWithEffort_Click" Tag="medium"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
-                        <MenuItem Header="high"   Click="MenuResumeWithEffort_Click" Tag="high"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
-                        <MenuItem Header="xhigh"  Click="MenuResumeWithEffort_Click" Tag="xhigh"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
-                        <MenuItem Header="max"    Click="MenuResumeWithEffort_Click" Tag="max"
-                                  Style="{StaticResource DarkSubmenuItem}"/>
+                    <MenuItem Header="Resume with effort">
+                        <MenuItem Header="low"    Click="MenuResumeWithEffort_Click" Tag="low"/>
+                        <MenuItem Header="medium" Click="MenuResumeWithEffort_Click" Tag="medium"/>
+                        <MenuItem Header="high"   Click="MenuResumeWithEffort_Click" Tag="high"/>
+                        <MenuItem Header="xhigh"  Click="MenuResumeWithEffort_Click" Tag="xhigh"/>
+                        <MenuItem Header="max"    Click="MenuResumeWithEffort_Click" Tag="max"/>
                     </MenuItem>
                     <MenuItem Header="Toggle Favorite" Click="MenuToggleFavorite_Click"/>
                     <MenuItem Header="Edit Note..." Click="MenuEditNote_Click"/>

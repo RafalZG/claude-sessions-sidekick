@@ -661,6 +661,7 @@ public partial class SessionBrowserWindow : Window
         ResumeSelected();
     }
 
+
     private void BtnResume_Click(object sender, RoutedEventArgs e)
     {
         ResumeSelected();
