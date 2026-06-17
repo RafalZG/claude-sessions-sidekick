@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Session Browser: per-session **Rename Topic** (right-click → Rename
+  Topic...). The auto-derived topic chain — claude's /rename → first
+  user message → kebab-case slug — sometimes lands on something
+  unrecognizable when a session opens from a script or starts with a
+  one-word prompt. The override displays in the Topic column and tooltip,
+  survives claude rewriting the live session-name file, and clearing
+  the box restores the original chain. Stored in
+  `%APPDATA%\ClaudeSessionsSidekick\session-topics.json`, separate from
+  `session-names.json` so claude's own /rename writes can't clobber it.
+  Resolves [#1](https://github.com/RafalZG/claude-sessions-sidekick/issues/1).
 - Session Browser context menu fully rebuilt from scratch with a single
   unified dark-theme template — items, separators, and submenu popups
   now render uniformly without the gutter strip, mismatched item heights,

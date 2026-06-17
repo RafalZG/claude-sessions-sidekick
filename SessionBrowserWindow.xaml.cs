@@ -916,6 +916,30 @@ public partial class SessionBrowserWindow : Window
         ApplyFilters();
     }
 
+    private void MenuRenameTopic_Click(object sender, RoutedEventArgs e)
+    {
+        if (dgSessions.SelectedItem is not SessionViewModel vm)
+        {
+            return;
+        }
+
+        // Pre-fill with the existing override if any, otherwise the
+        // currently-displayed topic so the user can edit-in-place instead
+        // of having to type from scratch.
+        var existing = vm.CustomTopic ?? vm.Topic;
+        var label = string.IsNullOrEmpty(vm.ProjectName)
+            ? vm.SessionId
+            : $"{vm.ProjectName} — {vm.SessionId[..8]}";
+        var (saved, topic) = TopicEditorDialog.Show(label, existing, this);
+        if (!saved)
+        {
+            return;
+        }
+
+        SessionTopicsService.SetTopic(vm.SessionId, topic);
+        ApplyFilters();
+    }
+
     private void MenuExport_Click(object sender, RoutedEventArgs e)
     {
         if (dgSessions.SelectedItem is not SessionViewModel vm)
@@ -1234,7 +1258,13 @@ public class SessionViewModel
         ? ""
         : string.Join("\n", Recommendation.Reasons);
 
-    public string Topic => _data.Topic;
+    /// <summary>User-set override (via "Rename Topic..." in the context
+    /// menu), or null when no override is set. Read live from the service
+    /// so a rename takes effect on the next ApplyFilters() without any
+    /// SessionTokenData mutation.</summary>
+    public string? CustomTopic => SessionTopicsService.GetTopic(_data.SessionId);
+
+    public string Topic => CustomTopic ?? _data.Topic;
 
     /// <summary>Content-search match for this session, if any. Set by the
     /// browser after running a search; surfaced in the Topic tooltip so
@@ -1247,6 +1277,15 @@ public class SessionViewModel
         get
         {
             var parts = new List<string>();
+            var custom = CustomTopic;
+            if (custom != null)
+            {
+                // Lead with the override so it's obvious WHY the displayed
+                // topic doesn't match anything from the JSONL. The original
+                // chain stays visible underneath so the user can see what
+                // they renamed away from.
+                parts.Add($"Custom topic: {custom}");
+            }
             if (_data.CustomName != null)
             {
                 parts.Add($"Name: {_data.CustomName}");

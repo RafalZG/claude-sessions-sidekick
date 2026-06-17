@@ -407,6 +407,7 @@
                         <MenuItem Header="max"    Click="MenuResumeWithEffort_Click" Tag="max"/>
                     </MenuItem>
                     <MenuItem Header="Toggle Favorite" Click="MenuToggleFavorite_Click"/>
+                    <MenuItem Header="Rename Topic..." Click="MenuRenameTopic_Click"/>
                     <MenuItem Header="Edit Note..." Click="MenuEditNote_Click"/>
                     <MenuItem Header="Copy Session ID" Click="MenuCopyId_Click"/>
                     <Separator/>

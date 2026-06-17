@@ -31,6 +31,7 @@ Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no ba
 - All sessions across all projects in one list
 - Full-text search inside session JSONL contents (filters out tool results, thinking signatures)
 - Per-session free-text **notes** (right-click → Edit Note)
+- Per-session **topic override** (right-click → Rename Topic) when the auto-derived topic isn't recognizable
 - Per-session **color tags** for visual grouping
 - **Favorites** with greyed star ☆ for unflagged
 - Persistent column widths/order + window size — right-click header to restore defaults
