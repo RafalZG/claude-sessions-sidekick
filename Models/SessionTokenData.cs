@@ -58,8 +58,11 @@ public class SessionTokenData
     public string? FirstMessage { get; set; }
 
     /// <summary>
-    /// Best human-readable identifier for this session: custom /rename name → first user
-    /// message → slug → first 8 chars of session id. Same priority as Session Browser.
+    /// Best human-readable identifier for this session: custom /rename name → slug
+    /// → first user message → first 8 chars of session id. Same priority as Session
+    /// Browser. Slug beats FirstMessage because that's what claude code itself shows
+    /// in the CLI tab header on resume — using a different label here makes it harder
+    /// to cross-reference a session in our list against the tab it's running in.
     /// </summary>
     public string Topic
     {
@@ -69,13 +72,13 @@ public class SessionTokenData
             {
                 return CustomName!;
             }
-            if (!string.IsNullOrWhiteSpace(FirstMessage))
-            {
-                return FirstMessage!;
-            }
             if (!string.IsNullOrWhiteSpace(Slug))
             {
                 return Slug!;
+            }
+            if (!string.IsNullOrWhiteSpace(FirstMessage))
+            {
+                return FirstMessage!;
             }
             return SessionId.Length >= 8 ? SessionId[..8] : SessionId;
         }

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Session Browser & widget Topic display now prefer the session's
+  **slug** (e.g. `bad-debt-relief-screen`) over the raw first user
+  message. The slug is what claude code itself shows in the CLI tab
+  header on resume, so matching it makes cross-referencing a session
+  in the list against the running tab obvious. Custom `/rename` titles
+  still win over the slug, and the slug still falls back to the first
+  user message when no slug has been generated yet (very fresh
+  sessions). The Topic column tooltip still lists Name / FirstMessage /
+  Slug / ID separately so the original context stays visible.
+
 ### Added
 - Session Browser: per-session **Rename Topic** (right-click → Rename
   Topic...). The auto-derived topic chain — claude's /rename → first

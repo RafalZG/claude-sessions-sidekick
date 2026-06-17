@@ -176,9 +176,12 @@ public class SessionTokenDataTests
         }
 
         [Fact]
-        public void Topic_FallsBackToFirstMessage()
+        public void Topic_PrefersSlugOverFirstMessage()
         {
-            // Arrange
+            // Arrange — slug wins because that's what claude code itself
+            // shows in the CLI tab header on resume; matching it makes
+            // session cross-reference between the widget and the running
+            // tab trivial.
             var session = new SessionTokenData
             {
                 FirstMessage = "Fix the bug in...",
@@ -187,11 +190,25 @@ public class SessionTokenDataTests
             };
 
             // Act & Assert
+            Assert.Equal("keen-mixing-origami", session.Topic);
+        }
+
+        [Fact]
+        public void Topic_FallsBackToFirstMessage_WhenNoSlug()
+        {
+            // Arrange
+            var session = new SessionTokenData
+            {
+                FirstMessage = "Fix the bug in...",
+                SessionId = "abc12345-6789-0000-0000-000000000000"
+            };
+
+            // Act & Assert
             Assert.Equal("Fix the bug in...", session.Topic);
         }
 
         [Fact]
-        public void Topic_FallsBackToSlug()
+        public void Topic_FallsBackToSlug_WhenOnlySlugSet()
         {
             // Arrange
             var session = new SessionTokenData
