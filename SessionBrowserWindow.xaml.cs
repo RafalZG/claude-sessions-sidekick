@@ -1093,11 +1093,21 @@ public partial class SessionBrowserWindow : Window
             }
         }
 
+        // When the caller didn't pick a specific model (plain Resume, or
+        // Resume with effort), derive an alias from the session's recorded
+        // model so claude code reuses the same family. Critical for opus
+        // and sonnet sessions: without --model, `claude --resume` would
+        // land on the snapshot ID recorded in the JSONL, which defaults
+        // to the 200k tier and silently drops the (1M context) the user
+        // was running with. Detection is family-only — opus stays opus,
+        // sonnet stays sonnet, haiku stays haiku.
+        var effectiveModel = modelOverride ?? ClaudeConfigService.GetResumeAliasForModel(vm.Model);
+
         var entry = new QuickLaunchEntry
         {
             Name = vm.ProjectName,
             FolderPath = folder,
-            ModelOverride = modelOverride
+            ModelOverride = effectiveModel
         };
 
         ClaudeLauncherService.LaunchResume(entry, vm.SessionId, effortOverride);
@@ -1158,6 +1168,7 @@ public class SessionViewModel
     public string FilePath => _data.FilePath;
     public string ProjectName => _data.ProjectName;
     public string CwdPath => _data.Cwd ?? _data.FilePath;
+    public string? Model => _data.Model;
     public string? GitBranch => _data.GitBranch;
     public string? Cwd => _data.Cwd;
     public int TurnCount => _data.TurnCount;

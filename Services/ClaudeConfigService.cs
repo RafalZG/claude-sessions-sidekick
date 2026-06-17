@@ -129,6 +129,48 @@ public static class ClaudeConfigService
     public static bool IsModelShorthand(string? configuredModel) => IsReducedContextModel(configuredModel);
 
     /// <summary>
+    /// Maps a session's recorded model string (e.g. "claude-opus-4-8-20251015")
+    /// to the CLI alias that routes to the current top-tier variant for that
+    /// family — "opus" / "sonnet" / "haiku". Used when resuming a session so
+    /// claude code keeps the same family AND, for opus/sonnet, picks up the
+    /// 1M-context variant rather than dropping to the 200k default that
+    /// `claude --resume &lt;id&gt;` without --model otherwise lands on (the
+    /// symptom Mike reported: an Opus 4.8 (1M) session resumed via "Resume
+    /// with effort" came back as Opus 4.8 with no 1M label).
+    ///
+    /// Detection is family-only (claude-*-4-*), never cross-family: an
+    /// opus session never becomes sonnet, a haiku session never becomes opus.
+    /// Pre-4 generations (3-5, 3-opus, etc.) return null so the caller falls
+    /// back to claude's own resume behavior — silently rerouting an old
+    /// session to a current family would be a model upgrade behind the
+    /// user's back.
+    /// </summary>
+    public static string? GetResumeAliasForModel(string? recordedModel)
+    {
+        if (string.IsNullOrEmpty(recordedModel))
+        {
+            return null;
+        }
+
+        if (recordedModel == "haiku" || recordedModel.StartsWith("claude-haiku-4", StringComparison.Ordinal))
+        {
+            return "haiku";
+        }
+
+        if (recordedModel == "opus" || recordedModel.StartsWith("claude-opus-4", StringComparison.Ordinal))
+        {
+            return "opus";
+        }
+
+        if (recordedModel == "sonnet" || recordedModel.StartsWith("claude-sonnet-4", StringComparison.Ordinal))
+        {
+            return "sonnet";
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Diagnostic: returns the four settings file paths the widget consults
     /// for model resolution along with the model value found in each (or
     /// "(missing)" / "(no model key)"). Used by state dumps to make

@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Session Browser context menu fully rebuilt from scratch with a single
+  unified dark-theme template — items, separators, and submenu popups
+  now render uniformly without the gutter strip, mismatched item heights,
+  or two-tone separators that the iterative styling patches in 1.0.2
+  kept producing. See `docs/MENU_STYLING_PLAN.md` for the spec.
+
+### Fixed
+- Resuming an Opus or Sonnet session no longer drops the 1M context window.
+  `claude --resume <id>` without `--model` resolves the model from the
+  session's JSONL snapshot ID, which routes to the 200k tier by default —
+  so a session that was running as "Opus 4.8 (1M context)" would come
+  back as plain "Opus 4.8" after Resume Session or Resume with effort.
+  The Session Browser now derives the matching alias (`opus` / `sonnet`
+  / `haiku`) from the session's recorded model family and passes it on
+  every resume, keeping opus sessions opus, sonnet sessions sonnet, and
+  haiku sessions haiku. Explicit per-session model picks via "Resume with
+  model →" still override the auto-detected alias.
+
+### Infrastructure
+- Pinned `winget-releaser` to a `main`-branch SHA (2026-03-15) and passed
+  the GitHub release tag URL via `release-notes-url`. The `v2` tag
+  predates that input, so komac couldn't backfill `ReleaseNotes` /
+  `ReleaseNotesUrl` and every release PR got blocked on wingetbot's
+  `Manifest-Metadata-Consistency` check. v1.0.2 needed a manual
+  locale.yaml fix on the PR branch; future releases should sail through.
+
+### Removed
+- Debug → "Migrate data from earlier version..." helper. It existed only
+  to one-click move user-data files (settings, favorites, notes, color
+  tags, prompt library, session-browser layout) from the legacy
+  `%APPDATA%\XGGClaudeUsageWidget` folder into the sidekick's data
+  folder. The known users have migrated. Anyone who needs it later can
+  still copy the JSON files by hand.
+
 ## [1.0.2] — 2026-06-16
 
 ### Fixed

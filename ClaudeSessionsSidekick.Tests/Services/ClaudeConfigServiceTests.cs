@@ -412,4 +412,43 @@ public class ClaudeConfigServiceTests
             Assert.False(ClaudeConfigService.IsReducedContextModel(model));
         }
     }
+
+    // ── GetResumeAliasForModel ─────────────────────────────────────
+    // Maps a session's recorded model to the CLI alias that should be
+    // passed on `claude --resume` to keep the 1M context (Mike's bug:
+    // resume-with-effort dropped Opus 4.8 (1M) to plain Opus 4.8 200k).
+
+    public class GetResumeAliasForModelTests
+    {
+        [Theory]
+        [InlineData("claude-opus-4-8-20251015", "opus")]
+        [InlineData("claude-opus-4-8", "opus")]
+        [InlineData("claude-opus-4-7", "opus")]
+        [InlineData("opus", "opus")]
+        [InlineData("claude-sonnet-4-6", "sonnet")]
+        [InlineData("claude-sonnet-4-6-20251020", "sonnet")]
+        [InlineData("sonnet", "sonnet")]
+        [InlineData("claude-haiku-4-5", "haiku")]
+        [InlineData("claude-haiku-4-5-20251001", "haiku")]
+        [InlineData("haiku", "haiku")]
+        public void MapsCurrentFamiliesToAlias(string recorded, string expected)
+        {
+            Assert.Equal(expected, ClaudeConfigService.GetResumeAliasForModel(recorded));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        // Pre-4 generations — don't silently upgrade to current family.
+        [InlineData("claude-3-5-sonnet-20241022")]
+        [InlineData("claude-3-opus-20240229")]
+        [InlineData("claude-3-haiku-20240307")]
+        // Fable / unknown experimental — caller should let claude default.
+        [InlineData("claude-fable-5")]
+        [InlineData("some-other-model")]
+        public void ReturnsNullForUnknownOrOlderModels(string? recorded)
+        {
+            Assert.Null(ClaudeConfigService.GetResumeAliasForModel(recorded));
+        }
+    }
 }
