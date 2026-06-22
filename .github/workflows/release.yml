@@ -52,19 +52,21 @@ jobs:
         # job don't error with "tool already installed" from the cached PATH.
         run: dotnet tool update --global vpk --version 0.0.1298 || dotnet tool install --global vpk --version 0.0.1298
 
-      - name: Publish (Release, win-x64, framework-dependent)
-        # Framework-dependent keeps the bundle small; users need the .NET 10
-        # Desktop Runtime which is documented in the README. Switch to
-        # `--self-contained true -p:PublishSingleFile=true` if we ever decide
-        # the runtime install friction outweighs the bundle size.
-        # `-p:Version` ensures the assembly's File/Informational version
-        # matches the git tag (so AboutWindow shows e.g. "1.0.0-rc2" instead
-        # of the csproj fallback "1.0.0").
+      - name: Publish (Release, win-x64, self-contained)
+        # Self-contained bundles the .NET 10 Desktop Runtime inside the app, so
+        # the installer works on a clean machine with no runtime installed and
+        # the winget sandbox can never fail on a missing-dependency check. The
+        # trade-off is a larger download (~60-70 MB vs ~11 MB) — acceptable for a
+        # winget/GitHub-distributed dev tool, and it ends the recurring
+        # Microsoft.DotNet.DesktopRuntime.10 resolution failures in winget
+        # validation. We do NOT trim: WPF reflection/XAML doesn't trim safely.
+        # `-p:Version` stamps the assembly version from the git tag so the About
+        # window shows e.g. "1.0.3" instead of the csproj fallback.
         run: >
           dotnet publish ClaudeSessionsSidekick.csproj
           --configuration Release
           --runtime win-x64
-          --self-contained false
+          --self-contained true
           --output publish
           -p:Version=${{ steps.version.outputs.version }}
 
@@ -106,12 +108,18 @@ jobs:
 
     steps:
       - name: Publish manifest to winget-pkgs
-        # `vedantmgoyal2009/winget-releaser` clones the latest published manifest
-        # for this PackageIdentifier, swaps in the new version + recomputed
-        # InstallerSha256, opens a fork PR against microsoft/winget-pkgs, and
-        # waits for moderator review. Dependencies / AppsAndFeaturesEntries
-        # blocks are carried forward from the 1.0.0 manifest so we don't have
-        # to re-declare the .NET 10 runtime dependency every release.
+        # `vedantmgoyal2009/winget-releaser` runs komac to regenerate the
+        # manifest from the new Setup.exe, opens a fork PR against
+        # microsoft/winget-pkgs, and waits for moderator review. Because the app
+        # is now self-contained there is NO .NET runtime dependency to declare —
+        # the manifest legitimately ships without a Dependencies block. The
+        # published baseline (1.0.0) still lists Dependencies, so this first
+        # self-contained release trips wingetbot's Manifest-Metadata-Consistency
+        # check and needs a one-time moderator override; after it merges the new
+        # baseline has no Dependencies and later releases stay consistent.
+        # NOTE: komac mis-detects Velopack as Scope: machine — hand-fix the PR
+        # branch to `Scope: user` (Velopack installs per-user to %LocalAppData%)
+        # before requesting merge.
         #
         # WINGET_TOKEN is a classic PAT with `public_repo` scope on the
         # publishing account (RafalZG). Stored as a repo secret. The default

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] — 2026-06-22
+
 ### Changed
 - Session Browser & widget Topic display now prefer the session's
   **slug** (e.g. `bad-debt-relief-screen`) over the raw first user
@@ -54,6 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ReleaseNotesUrl` and every release PR got blocked on wingetbot's
   `Manifest-Metadata-Consistency` check. v1.0.2 needed a manual
   locale.yaml fix on the PR branch; future releases should sail through.
+- **Release build is now self-contained** (`--self-contained true`). The
+  .NET 10 Desktop Runtime ships inside the installer, so the app installs
+  and launches on a machine with no runtime present. This removes the
+  `Microsoft.DotNet.DesktopRuntime.10` dependency that kept failing
+  winget's sandbox install check ("No suitable installer found for
+  Microsoft.DotNet.DesktopRuntime.10"). The installer grows from ~11 MB to
+  ~60-70 MB, and the winget manifest no longer declares a runtime
+  dependency. v1.0.2's winget submission is superseded by this release.
 
 ### Removed
 - Debug → "Migrate data from earlier version..." helper. It existed only
