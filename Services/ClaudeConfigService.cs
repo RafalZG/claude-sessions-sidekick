@@ -494,6 +494,21 @@ public static class ClaudeConfigService
             }
         }
 
+        // User-level skills (~/.claude/skills) — available in every project,
+        // the sibling of per-project .claude/skills. Listed before project
+        // skills because it's the broader scope. Shown even when the dir is
+        // absent/empty (as "(0 skills)") so its existence is discoverable.
+        var userSkillsDir = Path.Combine(ClaudeHomeDir, "skills");
+        var userSkillCount = Directory.Exists(userSkillsDir)
+            ? Directory.GetDirectories(userSkillsDir).Length
+            : 0;
+        sources.Add(new PluginSource
+        {
+            DisplayName = $"User skills: ~/.claude  ({userSkillCount} skills)",
+            SourceType = PluginSourceType.ProjectSkills,
+            Path = userSkillsDir,
+        });
+
         // Per-project skills
         foreach (var p in projects.Where(p => !string.IsNullOrWhiteSpace(p.FolderPath))
                                    .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))

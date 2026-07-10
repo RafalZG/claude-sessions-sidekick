@@ -178,6 +178,7 @@ public class SessionWatcherService : IDisposable
                 if (root.TryGetProperty("customTitle", out var titleProp))
                 {
                     session.CustomName = titleProp.GetString();
+                    session.CustomNameFromRename = true;
                 }
             }
             else if (type == "user")
@@ -413,10 +414,97 @@ public class SessionWatcherService : IDisposable
         return dir;
     }
 
+    // Assigns each session a display ProjectName derived from its recorded Cwd
+    // (the real filesystem path) instead of the lossy encoded folder key. In the
+    // key, the drive colon, path separators, AND literal '-'/'_' in folder names
+    // all collapse to '-', so three distinct real folders — ExergyERP_Dev,
+    // ExergyERP-Dev, ExergyERP\Dev — share one key and one ProjectName. That is
+    // Ewa's "active session header shows a different session": two sessions become
+    // visually indistinguishable. Cwd is unambiguous, so we key off it instead.
+    //
+    // The label is the shortest leaf-anchored tail of the Cwd path that no OTHER
+    // distinct Cwd in the set shares. Non-colliding projects stay short (just the
+    // leaf folder); only genuinely-colliding ones grow leftward (parent\leaf) and
+    // only as far as needed to become unique. Sessions with no Cwd keep the
+    // key-derived ExtractProjectName fallback.
+    internal static void AssignProjectNames(IEnumerable<SessionTokenData> sessions)
+    {
+        var list = sessions as ICollection<SessionTokenData> ?? sessions.ToList();
+
+        // Split each distinct Cwd into path segments once.
+        var segmentsByPath = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in list)
+        {
+            if (string.IsNullOrWhiteSpace(s.Cwd))
+            {
+                continue;
+            }
+            var norm = s.Cwd!.TrimEnd('\\', '/');
+            if (!segmentsByPath.ContainsKey(norm))
+            {
+                var segs = norm.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries);
+                if (segs.Length > 0)
+                {
+                    segmentsByPath[norm] = segs;
+                }
+            }
+        }
+
+        // For each distinct path, pick the shortest leaf-anchored tail unique
+        // among all other distinct paths.
+        var labelByPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (path, segs) in segmentsByPath)
+        {
+            var label = string.Join("\\", segs);
+            for (var k = 1; k <= segs.Length; k++)
+            {
+                var tail = string.Join("\\", segs[^k..]);
+                var clash = false;
+                foreach (var (otherPath, otherSegs) in segmentsByPath)
+                {
+                    if (otherPath.Equals(path, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    if (otherSegs.Length >= k &&
+                        string.Join("\\", otherSegs[^k..]).Equals(tail, StringComparison.OrdinalIgnoreCase))
+                    {
+                        clash = true;
+                        break;
+                    }
+                }
+                label = tail;
+                if (!clash)
+                {
+                    break;
+                }
+            }
+            labelByPath[path] = label;
+        }
+
+        // Apply. Sessions sharing a Cwd get the same label (same project).
+        foreach (var s in list)
+        {
+            if (string.IsNullOrWhiteSpace(s.Cwd))
+            {
+                continue;
+            }
+            var norm = s.Cwd!.TrimEnd('\\', '/');
+            if (labelByPath.TryGetValue(norm, out var label))
+            {
+                s.ProjectName = label;
+            }
+        }
+    }
+
     public AggregatedTokenData GetAggregated()
     {
         lock (_lock)
         {
+            // Disambiguate over the full universe so the widget's project label
+            // for a session matches the Session Browser's (Ewa collision fix).
+            AssignProjectNames(_sessions.Values);
+
             var activeSessions = _sessions.Values
                 .Where(s => s.IsActive(ActiveThreshold))
                 .OrderByDescending(s => s.LastSeen)
@@ -493,6 +581,9 @@ public class SessionWatcherService : IDisposable
         // Load custom session names from ~/.claude/sessions/*.json
         LoadSessionNames(sessions);
 
+        // Disambiguate project names from real Cwd paths (Ewa collision fix).
+        AssignProjectNames(sessions.Values);
+
         return sessions.Values
             .Where(s => s.TurnCount > 0)
             .OrderByDescending(s => s.LastSeen)
@@ -543,10 +634,13 @@ public class SessionWatcherService : IDisposable
             }
         }
 
-        // Apply names to sessions
+        // Apply names to sessions. A Claude Code /rename (custom-title in the
+        // JSONL) is authoritative and must NOT be clobbered by this cache: the
+        // cache is fed from ~/.claude/sessions/*.json PID files, whose "name" is
+        // Claude's AUTO agent name, which goes stale the moment the user renames.
         foreach (var (sid, name) in nameCache)
         {
-            if (sessions.TryGetValue(sid, out var session))
+            if (sessions.TryGetValue(sid, out var session) && !session.CustomNameFromRename)
             {
                 session.CustomName = name;
             }
@@ -662,6 +756,7 @@ public class SessionWatcherService : IDisposable
                     if (root.TryGetProperty("customTitle", out var titleProp))
                     {
                         session.CustomName = titleProp.GetString();
+                        session.CustomNameFromRename = true;
                     }
                 }
                 else if (type == "user")

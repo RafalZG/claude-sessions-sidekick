@@ -1,3 +1,4 @@
+using ClaudeSessionsSidekick.Models;
 using ClaudeSessionsSidekick.Services;
 using Xunit;
 
@@ -5,6 +6,82 @@ namespace ClaudeSessionsSidekick.Tests;
 
 public class SessionWatcherServiceTests
 {
+    // --- AssignProjectNames: Cwd-based project label disambiguation (Ewa fix) ---
+
+    private static SessionTokenData Sess(string cwd, string fallback = "FALLBACK")
+        => new() { Cwd = cwd, ProjectName = fallback };
+
+    [Fact]
+    public void AssignProjectNames_DistinctLeaves_UsesLeafOnly()
+    {
+        var a = Sess(@"D:\XGGProjectsGit\GitHub");
+        var b = Sess(@"D:\XGGProjectsGit\GitHub\claude-sessions-sidekick");
+        var c = Sess(@"D:\XGGProjectsGit\GitHub\winget-pkgs-fork");
+
+        SessionWatcherService.AssignProjectNames([a, b, c]);
+
+        Assert.Equal("GitHub", a.ProjectName);
+        Assert.Equal("claude-sessions-sidekick", b.ProjectName);
+        Assert.Equal("winget-pkgs-fork", c.ProjectName);
+    }
+
+    [Fact]
+    public void AssignProjectNames_CollidingLeaves_ExtendsWithParent()
+    {
+        var a = Sess(@"C:\Praca\KlientA\Frontend");
+        var b = Sess(@"C:\Praca\KlientB\Frontend");
+
+        SessionWatcherService.AssignProjectNames([a, b]);
+
+        // Leaf "Frontend" collides, so both grow left by one segment — and no more.
+        Assert.Equal(@"KlientA\Frontend", a.ProjectName);
+        Assert.Equal(@"KlientB\Frontend", b.ProjectName);
+    }
+
+    [Fact]
+    public void AssignProjectNames_LossyKeyTriple_AllDistinct()
+    {
+        // The three real folders that the encoded key collapses to one
+        // ("...-ExergyERP-Dev"): underscore, dash, and nested. Ewa's collision.
+        var underscore = Sess(@"D:\XGGProjectsGit\ExergyERP_Dev");
+        var dash = Sess(@"D:\XGGProjectsGit\ExergyERP-Dev");
+        var nested = Sess(@"D:\XGGProjectsGit\ExergyERP\Dev");
+
+        SessionWatcherService.AssignProjectNames([underscore, dash, nested]);
+
+        // All three must end up distinct — the whole point of the fix.
+        var labels = new[] { underscore.ProjectName, dash.ProjectName, nested.ProjectName };
+        Assert.Equal(3, labels.Distinct().Count());
+        // Here the leaves are already distinct (ExergyERP_Dev / ExergyERP-Dev / Dev),
+        // so each stays leaf-only — no parent needed.
+        Assert.Equal("ExergyERP_Dev", underscore.ProjectName);
+        Assert.Equal("ExergyERP-Dev", dash.ProjectName);
+        Assert.Equal("Dev", nested.ProjectName);
+    }
+
+    [Fact]
+    public void AssignProjectNames_SameCwd_SharesLabel()
+    {
+        var a = Sess(@"D:\Work\App");
+        var b = Sess(@"D:\Work\App\");   // trailing separator, same folder
+
+        SessionWatcherService.AssignProjectNames([a, b]);
+
+        Assert.Equal("App", a.ProjectName);
+        Assert.Equal("App", b.ProjectName);
+    }
+
+    [Fact]
+    public void AssignProjectNames_NoCwd_KeepsFallback()
+    {
+        var a = Sess(cwd: null!, fallback: "key-derived-name");
+        a.Cwd = null;
+
+        SessionWatcherService.AssignProjectNames([a]);
+
+        Assert.Equal("key-derived-name", a.ProjectName);
+    }
+
     // --- LastSeen handling for timestamp-less JSONL lines ---
 
     [Fact]

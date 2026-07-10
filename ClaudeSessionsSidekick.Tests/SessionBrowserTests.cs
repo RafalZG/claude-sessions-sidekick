@@ -100,6 +100,29 @@ public class SessionBrowserTests
     }
 
     [Fact]
+    public void ProcessLine_CustomTitle_LatchesRenameFlag()
+    {
+        // Arrange — a Claude Code /rename must be marked authoritative so the
+        // session-names.json auto-name cache (LoadSessionNames) can't clobber it
+        // with a stale agent name. Regression guard for the "tab shows my rename
+        // but the browser shows the old auto slug" bug.
+        var watcher = new SessionWatcherService();
+        var fakePath = @"C:\Users\test\.claude\projects\test-proj\session.jsonl";
+
+        var userLine = """{"type":"user","sessionId":"s-rename","cwd":"D:\\Project","message":{"role":"user","content":"hello"},"timestamp":"2026-04-20T10:00:00Z"}""";
+        var titleLine = """{"type":"custom-title","customTitle":"Zarządzanie kontrahentami","sessionId":"s-rename"}""";
+
+        // Act
+        watcher.ProcessLine(userLine, fakePath);
+        watcher.ProcessLine(titleLine, fakePath);
+
+        // Assert
+        var session = watcher.GetRecentSessions(hours: 24 * 365).Single();
+        Assert.True(session.CustomNameFromRename);
+        Assert.Equal("Zarządzanie kontrahentami", session.CustomName);
+    }
+
+    [Fact]
     public void ProcessLine_CustomTitle_IsSearchableViaTopic()
     {
         // Arrange — verify that Topic (used by search filter) returns CustomName

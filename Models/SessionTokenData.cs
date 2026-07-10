@@ -51,6 +51,17 @@ public class SessionTokenData
     /// <summary>Custom name set by user via /rename.</summary>
     public string? CustomName { get; set; }
 
+    /// <summary>
+    /// True when <see cref="CustomName"/> came from a Claude Code <c>custom-title</c>
+    /// record (the user's explicit <c>/rename</c>). Guards against the
+    /// session-names.json cache — populated from the ephemeral <c>~/.claude/sessions/*.json</c>
+    /// PID files, which hold Claude's AUTO-generated agent name, not a user rename —
+    /// clobbering a real rename with a stale auto name. Runtime-only latch, recomputed
+    /// each scan from the JSONL, so it never needs to persist.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool CustomNameFromRename { get; set; }
+
     /// <summary>Auto-generated session name, e.g. "keen-mixing-origami".</summary>
     public string? Slug { get; set; }
 

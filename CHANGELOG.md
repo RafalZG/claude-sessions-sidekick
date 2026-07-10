@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Agents & Skills → Plugins & Skills: the Source dropdown now lists
+  **User skills** (`~/.claude/skills`) alongside marketplace plugins and
+  per-project skills. User-level skills are available in every project, so
+  omitting them hid a whole scope. Shown even when the folder is empty
+  (as `(0 skills)`) so its existence is discoverable. (Thanks Adrian.)
+
+### Fixed
+- Project names in the Session Browser and the widget header are now
+  derived from each session's real working directory (`cwd`) instead of
+  the lossy encoded folder key. In that key the drive colon, path
+  separators, and literal `-`/`_` in folder names all collapse to `-`,
+  so three distinct folders (`ExergyERP_Dev`, `ExergyERP-Dev`,
+  `ExergyERP\Dev`) shared one project name and their sessions became
+  indistinguishable — the "active session header shows a different
+  session" report. Labels are now the shortest unique tail of the real
+  path: non-colliding projects stay short (just the leaf folder), and
+  only genuinely-colliding ones grow to `parent\leaf`, as far as needed.
+- Session Browser Topic no longer reverts to Claude's auto-generated
+  agent name after you `/rename` a session inside Claude Code. The
+  session-names.json cache — populated from the ephemeral
+  `~/.claude/sessions/*.json` PID files, which hold the *auto* name —
+  was overwriting the `/rename` title parsed from the session log, so
+  the CLI tab showed your chosen name (e.g. "Zarządzanie kontrahentami")
+  while the browser still showed the old slug
+  (e.g. `contractor-management-pos-filter`). A `/rename` is now
+  authoritative and the auto-name cache can't clobber it. The
+  Sidekick's own **Rename Topic** override still sits on top of both.
+
 ## [1.0.3] — 2026-06-22
 
 ### Changed
