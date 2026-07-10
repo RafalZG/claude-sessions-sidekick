@@ -18,7 +18,7 @@
     <AssemblyTitle>Claude Sessions Sidekick</AssemblyTitle>
     <Description>Tray sidekick for Claude Code: live usage tracking + session browser, notes, colors, and quick launchers.</Description>
     <Authors>Rafał Zygmunt</Authors>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <!-- Tell MSBuild we own the Main entry point so it doesn't auto-generate
          one from App.xaml's ApplicationDefinition. We need our own Main to
          call `VelopackApp.Build().Run()` BEFORE Application is constructed —
