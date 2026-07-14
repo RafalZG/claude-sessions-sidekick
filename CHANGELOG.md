@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] — 2026-07-14
+
 ### Added
 - Session Browser → right-click → **Resume with model** now offers
   **Fable (1M)** alongside Sonnet / Opus / Haiku. It passes the full
@@ -14,8 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   on Team/Pro plans Fable's included access ended and it now bills via
   usage credits, so the resume will only succeed if your account has Fable
   access enabled.
-
-## [1.0.5] — 2026-07-14
 
 ### Fixed
 - Context-window sizing now recognises **Claude Fable 5** and **Mythos 5**
