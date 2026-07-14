@@ -397,6 +397,7 @@
                     <MenuItem Header="Resume with model">
                         <MenuItem Header="Sonnet (1M)" Click="MenuResumeWithModel_Click" Tag="sonnet"/>
                         <MenuItem Header="Opus (1M)"   Click="MenuResumeWithModel_Click" Tag="opus"/>
+                        <MenuItem Header="Fable (1M)"  Click="MenuResumeWithModel_Click" Tag="claude-fable-5"/>
                         <MenuItem Header="Haiku (200k)" Click="MenuResumeWithModel_Click" Tag="haiku"/>
                     </MenuItem>
                     <MenuItem Header="Resume with effort">

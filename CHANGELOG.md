@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Session Browser → right-click → **Resume with model** now offers
+  **Fable (1M)** alongside Sonnet / Opus / Haiku. It passes the full
+  `claude-fable-5` id to `claude --model` (no stable short alias). Note:
+  on Team/Pro plans Fable's included access ended and it now bills via
+  usage credits, so the resume will only succeed if your account has Fable
+  access enabled.
+
 ## [1.0.5] — 2026-07-14
 
 ### Fixed

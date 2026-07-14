@@ -1037,8 +1037,10 @@ public partial class SessionBrowserWindow : Window
         {
             return;
         }
-        // Each submenu item carries an alias as its Tag ("sonnet"/"opus"/"haiku")
-        // and forces that alias for this one launch. Effort still picks up
+        // Each submenu item carries a --model value as its Tag — a short alias
+        // for the families claude aliases ("sonnet"/"opus"/"haiku") or a full
+        // model id where there's no stable alias ("claude-fable-5"). It's passed
+        // straight to `claude --model` for this one launch. Effort still picks up
         // the user's global effort default — they're orthogonal knobs.
         var tag = mi.Tag as string;
         LaunchResumeForSelected(

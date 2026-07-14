@@ -43,9 +43,10 @@ public static class ClaudeLauncherService
 
     /// <summary>
     /// Builds the <c>--model X</c> suffix (with leading space) when an override
-    /// is set; otherwise returns empty. The override is restricted at the UI
-    /// layer to a known whitelist (sonnet/opus/haiku) so we don't need to
-    /// shell-escape — but we still validate here to keep arbitrary strings out
+    /// is set; otherwise returns empty. The override comes from the UI as a
+    /// short alias (sonnet/opus/haiku) or a full model id (e.g. claude-fable-5)
+    /// so we don't need to shell-escape — but we still validate here to keep
+    /// arbitrary strings out
     /// of the command line if a user hand-edits settings.json. Allow-list is
     /// strictly ASCII alnum + <c>-_.</c>: everything claude's documented
     /// aliases and full IDs need, nothing that any of cmd/PowerShell/git-bash

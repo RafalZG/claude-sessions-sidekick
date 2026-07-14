@@ -200,6 +200,10 @@ public class ClaudeLauncherServiceTests
             ClaudeLauncherService.BuildModelArg("claude-opus-4-7"));
         Assert.Equal(" --model claude-haiku-4-5-20251001",
             ClaudeLauncherService.BuildModelArg("claude-haiku-4-5-20251001"));
+        // The Session Browser "Resume with model → Fable" item passes the full
+        // id (no stable short alias), so it must survive validation.
+        Assert.Equal(" --model claude-fable-5",
+            ClaudeLauncherService.BuildModelArg("claude-fable-5"));
     }
 
     [Fact]
