@@ -97,71 +97,47 @@ jobs:
           --token $env:GITHUB_TOKEN
 
       - name: Set release notes from CHANGELOG
-        # Belt-and-suspenders: even with the in-script guard below, never let this
-        # cosmetic step fail the release job.
+        # vpk upload github creates the release with an EMPTY body. komac (in the
+        # winget job) derives the manifest ReleaseNotes from that body, so an
+        # empty body trips wingetbot Manifest-Metadata-Consistency. This step
+        # copies the matching CHANGELOG section into the release body via the
+        # REST API before the winget job runs. Non-fatal (continue-on-error): the
+        # Setup.exe is already uploaded, so a notes failure only warns. The whole
+        # script is wrapped in try/catch that emits a ::warning:: with the error,
+        # so any failure is visible in the run annotations.
         continue-on-error: true
-        # `vpk upload github` creates the release with an EMPTY body. komac (in
-        # the winget job) derives the manifest's ReleaseNotes from that body, so
-        # an empty body means the manifest ships with no ReleaseNotes — which
-        # trips wingetbot's Manifest-Metadata-Consistency check against the prior
-        # version that DID have notes, forcing a manual per-release edit of the
-        # PR-branch locale.yaml (we hit this on 1.0.2, 1.0.3, and 1.0.4).
-        # Populating the body from the matching CHANGELOG section here, BEFORE the
-        # winget job runs (it `needs: release`), lets komac emit ReleaseNotes
-        # automatically every release. No-op if the section is missing/empty.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          $version = "${{ steps.version.outputs.version }}"
-          # Pre-release tags (v1.0.5-rc1) carry the same notes as the base
-          # version — the CHANGELOG only has a "## [1.0.5]" section, so strip any
-          # "-suffix" before matching.
-          $notesVersion = $version -replace '-.*$', ''
-          $lines = Get-Content CHANGELOG.md
-          $start = -1; $end = $lines.Count
-          for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match "^##\s*\[$([regex]::Escape($notesVersion))\]") { $start = $i + 1; continue }
-            if ($start -ge 0 -and $lines[$i] -match '^##\s*\[') { $end = $i; break }
-          }
-          if ($start -lt 0) { Write-Host "No CHANGELOG section for $notesVersion — leaving release notes empty."; exit 0 }
-          $notes = ($lines[$start..($end - 1)] -join "`n").Trim()
-          if ([string]::IsNullOrWhiteSpace($notes)) { Write-Host "CHANGELOG section for $version is empty — skipping."; exit 0 }
-          Write-Host "Setting release notes for v$version:"
-          Write-Host $notes
-          # Set the body via the REST API directly — the same path `vpk upload
-          # github` uses (POST /releases) with the same GITHUB_TOKEN, which
-          # demonstrably works. The `gh` CLI failed here on both v1.0.5-rc1 and
-          # rc2 despite that token creating the release fine, so the CLI (not
-          # auth) was the problem. Retry the lookup for read-after-write lag on
-          # the just-created release; stay non-fatal (Setup.exe is already up).
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = "application/vnd.github+json"
-            "X-GitHub-Api-Version" = "2022-11-28"
-            "User-Agent" = "claude-sessions-sidekick-release"
-          }
-          $repo = "${{ github.repository }}"
-          $tag = "v$version"
-          $rel = $null
-          foreach ($attempt in 1..5) {
-            try {
-              $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/tags/$tag"
-              break
-            } catch {
-              Write-Host "Release $tag not queryable yet (attempt $attempt): $($_.Exception.Message)"
-              Start-Sleep -Seconds 8
-            }
-          }
-          if (-not $rel) { Write-Host "::warning::Release $tag not found after retries — notes not set."; exit 0 }
-          $payload = @{ body = $notes } | ConvertTo-Json -Depth 3
           try {
-            Invoke-RestMethod -Method Patch -Headers $headers -ContentType "application/json; charset=utf-8" `
-              -Body ([System.Text.Encoding]::UTF8.GetBytes($payload)) `
-              -Uri "https://api.github.com/repos/$repo/releases/$($rel.id)" | Out-Null
-            Write-Host "Release notes set on $tag (release id $($rel.id))."
+            $version = "${{ steps.version.outputs.version }}"
+            $notesVersion = $version -replace '-.*$', ''
+            $lines = Get-Content CHANGELOG.md
+            $start = -1
+            $end = $lines.Count
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match "^##\s*\[$([regex]::Escape($notesVersion))\]") { $start = $i + 1; continue }
+              if ($start -ge 0 -and $lines[$i] -match "^##\s*\[") { $end = $i; break }
+            }
+            if ($start -lt 0) { Write-Host "::warning::No CHANGELOG section for $notesVersion"; return }
+            $notes = ($lines[$start..($end - 1)] -join "`n").Trim()
+            if ([string]::IsNullOrWhiteSpace($notes)) { Write-Host "::warning::CHANGELOG section for $notesVersion is empty"; return }
+            $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = "application/vnd.github+json"; "X-GitHub-Api-Version" = "2022-11-28"; "User-Agent" = "release-workflow" }
+            $repo = "${{ github.repository }}"
+            $tag = "v$version"
+            $rel = $null
+            foreach ($attempt in 1..5) {
+              try { $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/tags/$tag"; break }
+              catch { Start-Sleep -Seconds 8 }
+            }
+            if ($null -eq $rel) { Write-Host "::warning::Release $tag not found after retries"; return }
+            $payload = @{ body = $notes } | ConvertTo-Json -Depth 3
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+            Invoke-RestMethod -Method Patch -Headers $headers -ContentType "application/json; charset=utf-8" -Body $bytes -Uri "https://api.github.com/repos/$repo/releases/$($rel.id)" | Out-Null
+            Write-Host "Release notes set on $tag"
           } catch {
-            Write-Host "::warning::Failed to PATCH release body: $($_.Exception.Message)"
+            Write-Host "::warning::notes step failed: $($_.Exception.Message)"
           }
 
   winget:
