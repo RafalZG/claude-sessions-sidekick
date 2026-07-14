@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] — 2026-07-14
+
 ### Fixed
 - Context-window sizing now recognises **Claude Fable 5** and **Mythos 5**
   (both 1M), so their sessions no longer get the stale 200k default — a
