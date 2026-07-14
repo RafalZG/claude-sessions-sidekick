@@ -97,6 +97,9 @@ jobs:
           --token $env:GITHUB_TOKEN
 
       - name: Set release notes from CHANGELOG
+        # Belt-and-suspenders: even with the in-script guard below, never let this
+        # cosmetic step fail the release job.
+        continue-on-error: true
         # `vpk upload github` creates the release with an EMPTY body. komac (in
         # the winget job) derives the manifest's ReleaseNotes from that body, so
         # an empty body means the manifest ships with no ReleaseNotes — which
@@ -127,7 +130,20 @@ jobs:
           Set-Content -Path release-notes.md -Value $notes -Encoding utf8
           Write-Host "Setting release notes for v$version:"
           Write-Host $notes
-          gh release edit "v$version" --notes-file release-notes.md
+          # Retry: `vpk upload github` creates the release moments earlier, so the
+          # first `gh release edit` can 404 on GitHub's read-after-write lag.
+          # Non-fatal: notes are cosmetic — the Setup.exe is already uploaded, so
+          # a persistent failure logs a warning instead of failing the release.
+          $ok = $false
+          foreach ($attempt in 1..4) {
+            gh release edit "v$version" --repo "${{ github.repository }}" --notes-file release-notes.md
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Write-Host "gh release edit attempt $attempt failed (exit $LASTEXITCODE); retrying..."
+            Start-Sleep -Seconds 10
+          }
+          if (-not $ok) {
+            Write-Host "::warning::Could not set release notes after retries — release shipped without notes."
+          }
 
   winget:
     # Auto-submit a manifest PR to microsoft/winget-pkgs once the GitHub release
