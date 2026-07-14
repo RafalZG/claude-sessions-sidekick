@@ -127,22 +127,41 @@ jobs:
           if ($start -lt 0) { Write-Host "No CHANGELOG section for $notesVersion — leaving release notes empty."; exit 0 }
           $notes = ($lines[$start..($end - 1)] -join "`n").Trim()
           if ([string]::IsNullOrWhiteSpace($notes)) { Write-Host "CHANGELOG section for $version is empty — skipping."; exit 0 }
-          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
           Write-Host "Setting release notes for v$version:"
           Write-Host $notes
-          # Retry: `vpk upload github` creates the release moments earlier, so the
-          # first `gh release edit` can 404 on GitHub's read-after-write lag.
-          # Non-fatal: notes are cosmetic — the Setup.exe is already uploaded, so
-          # a persistent failure logs a warning instead of failing the release.
-          $ok = $false
-          foreach ($attempt in 1..4) {
-            gh release edit "v$version" --repo "${{ github.repository }}" --notes-file release-notes.md
-            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
-            Write-Host "gh release edit attempt $attempt failed (exit $LASTEXITCODE); retrying..."
-            Start-Sleep -Seconds 10
+          # Set the body via the REST API directly — the same path `vpk upload
+          # github` uses (POST /releases) with the same GITHUB_TOKEN, which
+          # demonstrably works. The `gh` CLI failed here on both v1.0.5-rc1 and
+          # rc2 despite that token creating the release fine, so the CLI (not
+          # auth) was the problem. Retry the lookup for read-after-write lag on
+          # the just-created release; stay non-fatal (Setup.exe is already up).
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+            "User-Agent" = "claude-sessions-sidekick-release"
           }
-          if (-not $ok) {
-            Write-Host "::warning::Could not set release notes after retries — release shipped without notes."
+          $repo = "${{ github.repository }}"
+          $tag = "v$version"
+          $rel = $null
+          foreach ($attempt in 1..5) {
+            try {
+              $rel = Invoke-RestMethod -Headers $headers -Uri "https://api.github.com/repos/$repo/releases/tags/$tag"
+              break
+            } catch {
+              Write-Host "Release $tag not queryable yet (attempt $attempt): $($_.Exception.Message)"
+              Start-Sleep -Seconds 8
+            }
+          }
+          if (-not $rel) { Write-Host "::warning::Release $tag not found after retries — notes not set."; exit 0 }
+          $payload = @{ body = $notes } | ConvertTo-Json -Depth 3
+          try {
+            Invoke-RestMethod -Method Patch -Headers $headers -ContentType "application/json; charset=utf-8" `
+              -Body ([System.Text.Encoding]::UTF8.GetBytes($payload)) `
+              -Uri "https://api.github.com/repos/$repo/releases/$($rel.id)" | Out-Null
+            Write-Host "Release notes set on $tag (release id $($rel.id))."
+          } catch {
+            Write-Host "::warning::Failed to PATCH release body: $($_.Exception.Message)"
           }
 
   winget:
