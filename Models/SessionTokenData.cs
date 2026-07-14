@@ -208,14 +208,31 @@ public class SessionTokenData
             {
                 return 200_000;
             }
-            // Modern Opus / Sonnet 4.x and later all support 1M.
+            // Modern Opus / Sonnet 4.x and later, plus Fable 5 / Mythos 5, all
+            // support 1M.
             if (Model.StartsWith("claude-opus-", StringComparison.Ordinal) ||
-                Model.StartsWith("claude-sonnet-", StringComparison.Ordinal))
+                Model.StartsWith("claude-sonnet-", StringComparison.Ordinal) ||
+                Model.StartsWith("claude-fable-", StringComparison.Ordinal) ||
+                Model.StartsWith("claude-mythos-", StringComparison.Ordinal))
             {
                 return 1_000_000;
             }
-            // Legacy or unrecognised model — be conservative.
-            return 200_000;
+            // Genuinely-legacy pre-4 IDs (claude-3-*, claude-2*, claude-instant-*)
+            // topped out at 200k.
+            if (Model.StartsWith("claude-3", StringComparison.Ordinal) ||
+                Model.StartsWith("claude-2", StringComparison.Ordinal) ||
+                Model.StartsWith("claude-instant", StringComparison.Ordinal))
+            {
+                return 200_000;
+            }
+            // Anything else is almost always a model newer than this build. Assume
+            // 1M like the null case above: every modern Claude tier ships at 1M,
+            // and over-reporting the window is far less harmful than the
+            // false-positive "Consider /compact now" nags a stale 200k default
+            // produces. Fable 5 hit exactly this — a 569k session measured
+            // against a wrong 200k rendered as "ctx 284%". Haiku, the one modern
+            // 200k family, is caught explicitly above.
+            return 1_000_000;
         }
     }
 

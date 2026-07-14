@@ -16,13 +16,18 @@ public class SessionTokenDataTests
         [InlineData("claude-sonnet-4-6", 1_000_000)]
         [InlineData("claude-sonnet-4-7", 1_000_000)]
         [InlineData("claude-sonnet-5-0", 1_000_000)]
+        // Fable 5 / Mythos 5 — 1M (regression: was mis-defaulted to 200k, so a
+        // 569k Fable session rendered as "ctx 284%")
+        [InlineData("claude-fable-5", 1_000_000)]
+        [InlineData("claude-mythos-5", 1_000_000)]
         // Haiku family — historically 200k
         [InlineData("claude-haiku-4-5", 200_000)]
         [InlineData("claude-haiku-4-5-20251001", 200_000)]
-        // Unknown / null — assume modern (1M) instead of legacy 200k
+        // Unknown / null — assume modern (1M); every current Claude tier ships
+        // at 1M and over-reporting beats false-positive /compact nags
         [InlineData(null, 1_000_000)]
-        // Truly legacy model IDs without "claude-X-" prefix — conservative 200k
-        [InlineData("unknown-model", 200_000)]
+        [InlineData("unknown-model", 1_000_000)]
+        [InlineData("claude-something-new-9", 1_000_000)]
         public void ModelContextWindow_ReturnsCorrectSize(string? model, long expectedSize)
         {
             // Arrange

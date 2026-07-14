@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Context-window sizing now recognises **Claude Fable 5** and **Mythos 5**
+  (both 1M), so their sessions no longer get the stale 200k default — a
+  569k-token Fable session was rendering as "ctx 284%" with a bogus
+  "Consider /compact now". Unrecognised newer model IDs now also assume 1M
+  (every current Claude tier ships at 1M); only Haiku and genuinely-legacy
+  pre-4 IDs (`claude-3-*`, `claude-2*`) stay at 200k.
+
 ## [1.0.4] — 2026-07-10
 
 ### Added
