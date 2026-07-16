@@ -1,6 +1,6 @@
 # Claude Sessions Sidekick
 
-> Tray sidekick for [Claude Code](https://docs.claude.com/claude-code) — live usage tracking, session browser, quick launchers, and more.
+> Tray sidekick for [Claude Code](https://docs.claude.com/claude-code) — **paste screenshots straight into Claude Code**, live usage tracking, session browser, quick launchers, and more.
 
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4)
@@ -11,7 +11,7 @@
   <img src="Screenshots/session-browser.png" alt="Session Browser showing 8 sessions across projects with notes, color tags, and favorites" width="780" />
 </p>
 
-Claude Code's CLI is great at writing code; it's less great at telling you how much of your 5-hour block is left, where you parked that one session from last Tuesday, or which `/model` your latest project actually uses. Sidekick is a tray-resident companion that fills those gaps — a persistent usage view, a searchable browser for every session you've ever had, per-session notes and color tags, project quick launchers with global hotkeys, and a prompt library.
+Claude Code's CLI is great at writing code; it's less great at telling you how much of your 5-hour block is left, where you parked that one session from last Tuesday, or which `/model` your latest project actually uses — and it can't even paste a screenshot on native Windows terminals. Sidekick is a tray-resident companion that fills those gaps — **one-hotkey screenshot paste**, a persistent usage view, a searchable browser for every session you've ever had, per-session notes and color tags, project quick launchers with global hotkeys, and a prompt library.
 
 Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no background services, no telemetry.
 
@@ -20,6 +20,16 @@ Native WPF — single self-contained binary, ~50 MB RAM idle. No Electron, no ba
 > **Note:** This is a hobby project built using [vibe coding](https://en.wikipedia.org/wiki/Vibe_coding) with Claude Code — most of the source is AI-assisted. It's been dogfooded by the author for a few months on real workloads, but please treat it as a useful utility rather than production-grade software. Bug reports liberally welcomed via [GitHub Issues](https://github.com/RafalZG/claude-sessions-sidekick/issues).
 
 ## What it does
+
+### 📸 Paste screenshots into Claude Code &nbsp;·&nbsp; _New in v1.0.6_
+
+Native Windows terminals **can't paste an image into Claude Code** — normally you have to save the screenshot to a file and type its path by hand. Sidekick fixes that with a global hotkey (default **Ctrl+Alt+V**):
+
+1. Take a screenshot to your clipboard (Snipping Tool, PrtScn, ShareX, …)
+2. Press **Ctrl+Alt+V** with the terminal focused
+3. The screenshot's path drops into your prompt — add your question and Claude reads the image with its Read tool
+
+Under the hood it saves the clipboard bitmap as a PNG and types the path in for you (it only fires when the clipboard actually holds an image — plain text is a no-op). Shots are auto-pruned (newest 50 kept) under `%APPDATA%\ClaudeSessionsSidekick\Screenshots`; the hotkey, retention count, and folder are all configurable in **Settings → Global Hotkeys**.
 
 ### Live usage tracking
 - 5-hour rolling block + weekly Sonnet/Opus utilization in your tray
