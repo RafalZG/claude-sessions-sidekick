@@ -95,6 +95,10 @@ public partial class SettingsWindow : Window
         parts.Add(BuildHotkeyFromCombos(cmbPermMod1, cmbPermMod2, cmbPermKey) ?? "");
         parts.Add(BuildHotkeyFromCombos(cmbClaudeMod1, cmbClaudeMod2, cmbClaudeKey) ?? "");
         parts.Add(BuildHotkeyFromCombos(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey) ?? "");
+        parts.Add(BuildHotkeyFromCombos(cmbShotMod1, cmbShotMod2, cmbShotKey) ?? "");
+        parts.Add((chkScreenshotPaste?.IsChecked == true).ToString());
+        parts.Add(txtShotRetention?.Text?.Trim() ?? "");
+        parts.Add(txtShotFolder?.Text?.Trim() ?? "");
         parts.Add(((cmbAggressiveness?.SelectedItem as ComboBoxItem)?.Tag ?? CompactAggressiveness.Balanced).ToString()!);
         parts.Add((chkNotifications?.IsChecked == true).ToString());
         parts.Add((chkPermissionSuggestions?.IsChecked == true).ToString());
@@ -492,6 +496,48 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void BtnBrowseShotFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = "Select screenshot save folder",
+            UseDescriptionForTitle = true
+        };
+
+        var current = ResolveShotFolder();
+        if (Directory.Exists(current))
+        {
+            dialog.InitialDirectory = current;
+        }
+
+        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        {
+            txtShotFolder.Text = dialog.SelectedPath;
+        }
+    }
+
+    private void BtnOpenShotFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dir = ResolveShotFolder();
+            Directory.CreateDirectory(dir);
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"Could not open the folder:\n{ex.Message}",
+                "Screenshot folder",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    // The folder shown/used right now — the textbox override if set, else the default.
+    private string ResolveShotFolder() =>
+        ScreenshotPasteService.ResolveSaveDir(new AppSettings { ScreenshotSaveDir = txtShotFolder.Text.Trim() });
+
     private void BtnAdd_Click(object sender, RoutedEventArgs e)
     {
         if (!ValidateInput())
@@ -615,6 +661,12 @@ public partial class SettingsWindow : Window
         _settings.ScreenshotPasteHotkey = BuildHotkeyFromCombos(cmbShotMod1, cmbShotMod2, cmbShotKey)
             ?? _settings.ScreenshotPasteHotkey;
         _settings.EnableScreenshotPasteHotkey = chkScreenshotPaste.IsChecked == true;
+        if (int.TryParse(txtShotRetention.Text.Trim(), out var shotRetention) && shotRetention >= 0)
+        {
+            _settings.ScreenshotRetentionCount = shotRetention;
+        }
+        var shotFolder = txtShotFolder.Text.Trim();
+        _settings.ScreenshotSaveDir = string.IsNullOrEmpty(shotFolder) ? null : shotFolder;
         _settings.CompactAggressiveness = (cmbAggressiveness.SelectedItem as ComboBoxItem)?.Tag is CompactAggressiveness a
             ? a : CompactAggressiveness.Balanced;
         _settings.CustomWarningPercent = (int)sliderWarning.Value;
@@ -643,6 +695,8 @@ public partial class SettingsWindow : Window
         PopulateGlobalComboSet(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey, _settings.AgentsSkillsHotkey);
         PopulateGlobalComboSet(cmbShotMod1, cmbShotMod2, cmbShotKey, _settings.ScreenshotPasteHotkey);
         chkScreenshotPaste.IsChecked = _settings.EnableScreenshotPasteHotkey;
+        txtShotRetention.Text = _settings.ScreenshotRetentionCount.ToString();
+        txtShotFolder.Text = _settings.ScreenshotSaveDir ?? string.Empty;
     }
 
     private void LoadCompactSettings()

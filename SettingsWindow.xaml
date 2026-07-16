@@ -538,6 +538,43 @@
                                        Visibility="Collapsed" Margin="0,4,0,0"/>
                         </Grid>
                     </Border>
+
+                    <TextBlock Text="Screenshot Storage" Foreground="#A0B0FF" FontWeight="SemiBold"
+                               Margin="0,16,0,6"/>
+                    <Border Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                            CornerRadius="4" Padding="12,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Keep last N shots:" VerticalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBox x:Name="txtShotRetention" Grid.Row="0" Grid.Column="1" Width="70"
+                                     HorizontalAlignment="Left" Margin="0,0,0,8"
+                                     ToolTip="How many recent screenshots to keep. 0 = keep everything."/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Save folder:" VerticalAlignment="Center" Margin="0,0,0,6"/>
+                            <TextBox x:Name="txtShotFolder" Grid.Row="1" Grid.Column="1" Margin="0,0,6,6"
+                                     ToolTip="Leave empty for the default (%APPDATA%\ClaudeSessionsSidekick\Screenshots)."/>
+                            <StackPanel Grid.Row="1" Grid.Column="2" Orientation="Horizontal" Margin="0,0,0,6">
+                                <Button x:Name="btnBrowseShotFolder" Content="..." Padding="8,4"
+                                        Click="BtnBrowseShotFolder_Click" Margin="0,0,6,0"/>
+                                <Button x:Name="btnOpenShotFolder" Content="Open Folder" Padding="8,4"
+                                        Click="BtnOpenShotFolder_Click"/>
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Foreground="#888899"
+                                       FontSize="10.5" TextWrapping="Wrap"
+                                       Text="Empty folder = default (%APPDATA%\ClaudeSessionsSidekick\Screenshots)."/>
+                        </Grid>
+                    </Border>
                 </StackPanel>
             </TabItem>
 
