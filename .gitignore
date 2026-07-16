@@ -47,3 +47,7 @@ secrets.json
 
 # WPF XAML build temp project (auto-generated during markup compile)
 *_wpftmp.csproj
+
+# Velopack build output
+/publish/
+/Releases/
