@@ -612,6 +612,9 @@ public partial class SettingsWindow : Window
             ?? _settings.ClaudeConfigHotkey;
         _settings.AgentsSkillsHotkey = BuildHotkeyFromCombos(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey)
             ?? _settings.AgentsSkillsHotkey;
+        _settings.ScreenshotPasteHotkey = BuildHotkeyFromCombos(cmbShotMod1, cmbShotMod2, cmbShotKey)
+            ?? _settings.ScreenshotPasteHotkey;
+        _settings.EnableScreenshotPasteHotkey = chkScreenshotPaste.IsChecked == true;
         _settings.CompactAggressiveness = (cmbAggressiveness.SelectedItem as ComboBoxItem)?.Tag is CompactAggressiveness a
             ? a : CompactAggressiveness.Balanced;
         _settings.CustomWarningPercent = (int)sliderWarning.Value;
@@ -638,6 +641,8 @@ public partial class SettingsWindow : Window
         PopulateGlobalComboSet(cmbPermMod1, cmbPermMod2, cmbPermKey, _settings.PermissionManagerHotkey);
         PopulateGlobalComboSet(cmbClaudeMod1, cmbClaudeMod2, cmbClaudeKey, _settings.ClaudeConfigHotkey);
         PopulateGlobalComboSet(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey, _settings.AgentsSkillsHotkey);
+        PopulateGlobalComboSet(cmbShotMod1, cmbShotMod2, cmbShotKey, _settings.ScreenshotPasteHotkey);
+        chkScreenshotPaste.IsChecked = _settings.EnableScreenshotPasteHotkey;
     }
 
     private void LoadCompactSettings()
@@ -798,6 +803,7 @@ public partial class SettingsWindow : Window
         var permHk = BuildHotkeyFromCombos(cmbPermMod1, cmbPermMod2, cmbPermKey);
         var claudeHk = BuildHotkeyFromCombos(cmbClaudeMod1, cmbClaudeMod2, cmbClaudeKey);
         var agentsHk = BuildHotkeyFromCombos(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey);
+        var shotHk = BuildHotkeyFromCombos(cmbShotMod1, cmbShotMod2, cmbShotKey);
 
         // Check duplicates among global shortcuts
         var globalHotkeys = new[]
@@ -807,7 +813,8 @@ public partial class SettingsWindow : Window
             ("Prompt Library", promptHk),
             ("Permission Manager", permHk),
             ("Memory Manager", claudeHk),
-            ("Agents & Skills", agentsHk)
+            ("Agents & Skills", agentsHk),
+            ("Screenshot Paste", shotHk)
         };
         for (int i = 0; i < globalHotkeys.Length; i++)
         {
@@ -826,7 +833,7 @@ public partial class SettingsWindow : Window
         var warnings = new List<string>();
         foreach (var entry in _entries)
         {
-            if (entry.Hotkey != null && (entry.Hotkey == widgetHk || entry.Hotkey == browserHk || entry.Hotkey == promptHk || entry.Hotkey == permHk || entry.Hotkey == claudeHk || entry.Hotkey == agentsHk))
+            if (entry.Hotkey != null && (entry.Hotkey == widgetHk || entry.Hotkey == browserHk || entry.Hotkey == promptHk || entry.Hotkey == permHk || entry.Hotkey == claudeHk || entry.Hotkey == agentsHk || entry.Hotkey == shotHk))
             {
                 warnings.Add($"{entry.Hotkey} conflicts with Quick Launch Project \"{entry.Name}\"");
             }

@@ -439,6 +439,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="140"/>
@@ -518,7 +519,21 @@
                                           SelectionChanged="CmbGlobal_SelectionChanged"/>
                             </StackPanel>
 
-                            <TextBlock x:Name="txtGlobalWarning" Grid.Row="6" Grid.ColumnSpan="2"
+                            <CheckBox x:Name="chkScreenshotPaste" Grid.Row="6" Grid.Column="0"
+                                      Content="Screenshot Paste:" VerticalAlignment="Center" Margin="0,0,0,6"
+                                      ToolTip="Save a clipboard screenshot as a PNG and type its path into the focused terminal, so Claude Code can read it."/>
+                            <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                                <ComboBox x:Name="cmbShotMod1" Width="72" Style="{StaticResource DarkCombo}"
+                                          SelectionChanged="CmbGlobal_SelectionChanged"/>
+                                <TextBlock Text=" + " VerticalAlignment="Center" Margin="2,0"/>
+                                <ComboBox x:Name="cmbShotMod2" Width="72" Style="{StaticResource DarkCombo}"
+                                          SelectionChanged="CmbGlobal_SelectionChanged"/>
+                                <TextBlock Text=" + " VerticalAlignment="Center" Margin="2,0"/>
+                                <ComboBox x:Name="cmbShotKey" Width="60" Style="{StaticResource DarkCombo}"
+                                          SelectionChanged="CmbGlobal_SelectionChanged"/>
+                            </StackPanel>
+
+                            <TextBlock x:Name="txtGlobalWarning" Grid.Row="7" Grid.ColumnSpan="2"
                                        Foreground="#E8A030" FontSize="11" TextWrapping="Wrap"
                                        Visibility="Collapsed" Margin="0,4,0,0"/>
                         </Grid>

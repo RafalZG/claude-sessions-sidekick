@@ -87,6 +87,31 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("resumeEffortLevel")]
     public string? ResumeEffortLevel { get; set; }
+
+    /// <summary>
+    /// Global hotkey that turns a clipboard screenshot into a file Claude Code
+    /// can attach (save PNG → put on clipboard as a file-drop → synthesize
+    /// Ctrl+V into the focused terminal). Works around the fact that native
+    /// Windows terminals can't paste a raw clipboard bitmap into Claude Code.
+    /// </summary>
+    [JsonPropertyName("enableScreenshotPasteHotkey")]
+    public bool EnableScreenshotPasteHotkey { get; set; } = true;
+
+    [JsonPropertyName("screenshotPasteHotkey")]
+    public string ScreenshotPasteHotkey { get; set; } = "LCtrl+LAlt+V";
+
+    /// <summary>
+    /// Folder for the saved PNGs. Null = %APPDATA%\ClaudeSessionsSidekick\Screenshots.
+    /// </summary>
+    [JsonPropertyName("screenshotSaveDir")]
+    public string? ScreenshotSaveDir { get; set; }
+
+    /// <summary>
+    /// How many recent screenshots to keep on disk; older ones are pruned after
+    /// each paste. 0 or less = keep everything.
+    /// </summary>
+    [JsonPropertyName("screenshotRetentionCount")]
+    public int ScreenshotRetentionCount { get; set; } = 50;
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

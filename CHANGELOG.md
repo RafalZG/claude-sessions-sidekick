@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Send screenshots to Claude Code** with a global hotkey (default
+  **Ctrl+Alt+V**). Take a screenshot to the clipboard, press the hotkey while
+  the terminal is focused, and the image's path drops into the prompt — then
+  just ask your question and Claude reads the screenshot with its Read tool.
+  No more saving to disk and typing the path by hand. Under the hood it saves
+  the clipboard bitmap as a PNG under
+  `%APPDATA%\ClaudeSessionsSidekick\Screenshots` (newest 50 kept), puts that
+  path on the clipboard as text, and synthesizes Ctrl+V into the focused
+  window. (Native Windows terminals can't paste an actual *image* into Claude
+  Code — neither raw bitmap nor file-drop, see anthropics/claude-code#26679 —
+  but a path Claude can read works everywhere.) Note: if the terminal runs
+  elevated but the app doesn't, Windows (UIPI) blocks the synthetic paste.
+
 ## [1.0.5] — 2026-07-14
 
 ### Added

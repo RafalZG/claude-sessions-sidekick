@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private int _permissionManagerBindingId = -1;
     private int _claudeConfigBindingId = -1;
     private int _agentsSkillsBindingId = -1;
+    private int _screenshotPasteBindingId = -1;
 
     public MainWindow()
     {
@@ -279,6 +280,11 @@ public partial class MainWindow : Window
         _permissionManagerBindingId = _keyboardHook.Register(_appSettings.PermissionManagerHotkey, ShowPermissionManager);
         _claudeConfigBindingId = _keyboardHook.Register(_appSettings.ClaudeConfigHotkey, ShowClaudeConfig);
         _agentsSkillsBindingId = _keyboardHook.Register(_appSettings.AgentsSkillsHotkey, ShowAgentsSkills);
+
+        if (_appSettings.EnableScreenshotPasteHotkey)
+        {
+            _screenshotPasteBindingId = _keyboardHook.Register(_appSettings.ScreenshotPasteHotkey, PasteScreenshot);
+        }
     }
 
     private void UnregisterAllHotkeys()
@@ -289,14 +295,32 @@ public partial class MainWindow : Window
         _keyboardHook?.Unregister(_permissionManagerBindingId);
         _keyboardHook?.Unregister(_claudeConfigBindingId);
         _keyboardHook?.Unregister(_agentsSkillsBindingId);
+        _keyboardHook?.Unregister(_screenshotPasteBindingId);
         _sessionBrowserBindingId = -1;
         _promptLibraryBindingId = -1;
         _permissionManagerBindingId = -1;
         _claudeConfigBindingId = -1;
         _agentsSkillsBindingId = -1;
+        _screenshotPasteBindingId = -1;
     }
 
     private void ToggleVisibility() => ToggleWidget();
+
+    private void PasteScreenshot()
+    {
+        try
+        {
+            var result = ScreenshotPasteService.PasteFromClipboard(_appSettings);
+            if (result == ScreenshotPasteService.PasteResult.NoImage)
+            {
+                AppLogger.Info("ScreenshotPaste: hotkey pressed but clipboard had no image");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("ScreenshotPaste failed", ex);
+        }
+    }
 
     private void TxtTitle_RightClick(object sender, MouseButtonEventArgs e)
     {

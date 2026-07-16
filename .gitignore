@@ -44,3 +44,6 @@ secrets.json
 
 # Claude Code per-machine settings (if any user adds them later)
 .claude/settings.local.json
+
+# WPF XAML build temp project (auto-generated during markup compile)
+*_wpftmp.csproj
