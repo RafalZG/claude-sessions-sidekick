@@ -676,8 +676,8 @@ public partial class SessionBrowserWindow : Window
         }
 
         var msg = selected.Count == 1
-            ? $"Delete session \"{selected[0].Topic}\"?\n\nThis will permanently remove the session file from disk."
-            : $"Delete {selected.Count} sessions?\n\nThis will permanently remove the session files from disk.";
+            ? $"Delete session \"{selected[0].Topic}\"?\n\nThe session file will be moved to the Recycle Bin, so you can restore it if needed."
+            : $"Delete {selected.Count} sessions?\n\nThe session files will be moved to the Recycle Bin, so you can restore them if needed.";
 
         if (!ConfirmDialog.Show("Delete Sessions", msg, "Delete", this))
         {
@@ -690,7 +690,7 @@ public partial class SessionBrowserWindow : Window
             {
                 if (File.Exists(vm.FilePath))
                 {
-                    File.Delete(vm.FilePath);
+                    RecycleFile(vm.FilePath);
                 }
 
                 var dir = Path.Combine(
@@ -698,7 +698,7 @@ public partial class SessionBrowserWindow : Window
                     Path.GetFileNameWithoutExtension(vm.FilePath));
                 if (Directory.Exists(dir))
                 {
-                    Directory.Delete(dir, recursive: true);
+                    RecycleDirectory(dir);
                 }
             }
             catch
@@ -709,6 +709,21 @@ public partial class SessionBrowserWindow : Window
 
         LoadSessions();
     }
+
+    // Delete to the Recycle Bin (not permanently) so a mistaken delete is
+    // recoverable. OnlyErrorDialogs suppresses the per-file confirmation prompt
+    // but still surfaces genuine errors.
+    private static void RecycleFile(string path) =>
+        Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
+            path,
+            Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+            Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+
+    private static void RecycleDirectory(string path) =>
+        Microsoft.VisualBasic.FileIO.FileSystem.DeleteDirectory(
+            path,
+            Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+            Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
 
     private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
     {

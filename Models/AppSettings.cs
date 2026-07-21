@@ -28,6 +28,13 @@ public class AppSettings
     [JsonPropertyName("agentsSkillsHotkey")]
     public string AgentsSkillsHotkey { get; set; } = "Win+LAlt+A";
 
+    /// <summary>
+    /// Copies Claude's latest reply (from the most recently active session) to the
+    /// clipboard as clean, original text — no console width-wrapping or indentation.
+    /// </summary>
+    [JsonPropertyName("copyLatestReplyHotkey")]
+    public string CopyLatestReplyHotkey { get; set; } = "LCtrl+LAlt+R";
+
     [JsonPropertyName("compactAggressiveness")]
     public CompactAggressiveness CompactAggressiveness { get; set; } = CompactAggressiveness.Balanced;
 
@@ -112,6 +119,36 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("screenshotRetentionCount")]
     public int ScreenshotRetentionCount { get; set; } = 50;
+
+    /// <summary>
+    /// Periodically nudge the user to review + consolidate their Claude Code memory
+    /// files (dedupe, drop stale entries, keep memory lean). The nudge only fires
+    /// when the footprint is actually worth reviewing — see <see cref="MemoryReviewThresholdTokens"/>.
+    /// </summary>
+    [JsonPropertyName("enableMemoryReviewSuggestions")]
+    public bool EnableMemoryReviewSuggestions { get; set; } = true;
+
+    /// <summary>Minimum days between memory-review nudges.</summary>
+    [JsonPropertyName("memoryReviewIntervalDays")]
+    public int MemoryReviewIntervalDays { get; set; } = 7;
+
+    /// <summary>
+    /// Only nudge once the estimated memory footprint reaches this many tokens, so
+    /// users with little or no memory aren't pestered.
+    /// </summary>
+    [JsonPropertyName("memoryReviewThresholdTokens")]
+    public int MemoryReviewThresholdTokens { get; set; } = 25_000;
+
+    /// <summary>Timestamp of the last memory-review nudge (UTC), for throttling.</summary>
+    [JsonPropertyName("lastMemoryReviewSuggestionUtc")]
+    public DateTimeOffset? LastMemoryReviewSuggestionUtc { get; set; }
+
+    /// <summary>
+    /// After a PC restart, offer to reopen the Claude Code sessions that were open
+    /// before the restart (Chrome-style session restore).
+    /// </summary>
+    [JsonPropertyName("enableSessionRestore")]
+    public bool EnableSessionRestore { get; set; } = true;
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

@@ -1,0 +1,130 @@
+<Window x:Class="ClaudeSessionsSidekick.MemoryReviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Memory Review"
+        Width="620" Height="600"
+        MinWidth="520" MinHeight="460"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E2E"
+        KeyDown="Window_KeyDown">
+
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#3A3A5A"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="#3A3A5A"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A4A6A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#2A2A3A"/>
+                                <Setter Property="Foreground" Value="#666677"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,4">
+            <TextBlock Text="Automatic Memory Cleanup" FontSize="17" FontWeight="Bold" Foreground="#A0B0FF"/>
+            <Border Background="#2A2A3A" BorderBrush="#40606080" BorderThickness="1" CornerRadius="3"
+                    Padding="8,5" Margin="0,6,0,0" HorizontalAlignment="Left">
+                <TextBlock FontSize="11" Foreground="#B0B8D0" TextWrapping="Wrap"
+                           Text="&#x24D8;  Sidekick periodically suggests cleaning up your Claude Code memory files. This is a recommendation — nothing is changed automatically."/>
+            </Border>
+            <TextBlock x:Name="txtSummary" FontSize="12" Foreground="#C0C0D0" Margin="0,8,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" Margin="0,10,0,4" FontSize="12" Foreground="#888899"
+                   Text="Files feeding your Claude Code context (largest first):"/>
+
+        <!-- File list -->
+        <Border Grid.Row="2" Background="#252535" BorderBrush="#40606080" BorderThickness="1"
+                CornerRadius="4" Height="180">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="4">
+                <ItemsControl x:Name="lstFiles">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="6,3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Icon}" Foreground="#8090C0" FontSize="12"
+                                               Width="16" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding DisplayName}" Foreground="#D0D0E0" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding TokensDisplay}" Foreground="{Binding TokensBrush}"
+                                           FontSize="12" FontFamily="Consolas" Margin="12,0,4,0"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Prompt -->
+        <Grid Grid.Row="3" Margin="0,14,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" FontSize="12" Foreground="#888899" Margin="0,0,0,4"
+                       Text="Paste this into Claude Code — it will read, dedupe and consolidate the files:"/>
+            <Border Grid.Row="1" Background="#252535" BorderBrush="#40606080" BorderThickness="1" CornerRadius="4">
+                <TextBox x:Name="txtPrompt" IsReadOnly="True" TextWrapping="Wrap"
+                         Background="Transparent" Foreground="#D0D0E0" BorderThickness="0"
+                         FontFamily="Consolas" FontSize="12" Padding="8"
+                         VerticalScrollBarVisibility="Auto"/>
+            </Border>
+        </Grid>
+
+        <!-- Copy status -->
+        <TextBlock Grid.Row="4" x:Name="txtCopied" FontSize="11" Foreground="#4CAF50"
+                   Margin="0,6,0,0" Visibility="Collapsed" Text="Copied to clipboard."/>
+
+        <!-- Buttons -->
+        <Grid Grid.Row="5" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button Content="Open Memory Manager" Click="BtnOpenMemoryManager_Click" Margin="0,0,8,0"/>
+                <Button Content="Remind me in 60 min" Click="BtnRemindLater_Click" Margin="0,0,8,0"/>
+                <Button x:Name="btnDontRemind" Content="Don't remind me" Click="BtnDontRemind_Click"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Copy prompt" Click="BtnCopy_Click" Margin="0,0,8,0"
+                        Background="#3A5A3A"/>
+                <Button Content="Close" Click="BtnClose_Click" Padding="20,6"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

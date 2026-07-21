@@ -440,6 +440,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="140"/>
@@ -533,7 +534,20 @@
                                           SelectionChanged="CmbGlobal_SelectionChanged"/>
                             </StackPanel>
 
-                            <TextBlock x:Name="txtGlobalWarning" Grid.Row="7" Grid.ColumnSpan="2"
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Copy Last Reply:" VerticalAlignment="Center" Margin="0,0,0,6"
+                                       ToolTip="Copy Claude's most recent reply (from the active session) to the clipboard as clean, original text."/>
+                            <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                                <ComboBox x:Name="cmbCopyReplyMod1" Width="72" Style="{StaticResource DarkCombo}"
+                                          SelectionChanged="CmbGlobal_SelectionChanged"/>
+                                <TextBlock Text=" + " VerticalAlignment="Center" Margin="2,0"/>
+                                <ComboBox x:Name="cmbCopyReplyMod2" Width="72" Style="{StaticResource DarkCombo}"
+                                          SelectionChanged="CmbGlobal_SelectionChanged"/>
+                                <TextBlock Text=" + " VerticalAlignment="Center" Margin="2,0"/>
+                                <ComboBox x:Name="cmbCopyReplyKey" Width="60" Style="{StaticResource DarkCombo}"
+                                          SelectionChanged="CmbGlobal_SelectionChanged"/>
+                            </StackPanel>
+
+                            <TextBlock x:Name="txtGlobalWarning" Grid.Row="8" Grid.ColumnSpan="2"
                                        Foreground="#E8A030" FontSize="11" TextWrapping="Wrap"
                                        Visibility="Collapsed" Margin="0,4,0,0"/>
                         </Grid>
@@ -596,6 +610,9 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>
@@ -649,6 +666,25 @@
                             <CheckBox x:Name="chkCheckForUpdatesOnStartup" Grid.Row="5" Grid.Column="1" Margin="0,8,0,0"
                                       Content="Check for updates on startup"
                                       ToolTip="When on, the app checks GitHub for a newer version once every 8 hours after startup&#x0a;and shows a tray notification if one is available.&#x0a;When off, no automatic check runs — you can still trigger one manually from the tray menu (Check for updates...)."/>
+
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Memory:" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                            <CheckBox x:Name="chkMemoryReview" Grid.Row="6" Grid.Column="1" Margin="0,8,0,0"
+                                      Content="Suggest reviewing memory files periodically"
+                                      ToolTip="Nudge you to review + consolidate your Claude Code memory files (CLAUDE.md, AGENTS.md, rules, MEMORY.md).&#x0a;The nudge only appears when the estimated footprint is large enough to be worth trimming.&#x0a;Clicking it gives you a ready prompt to paste into Claude Code."/>
+                            <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="Every" VerticalAlignment="Center" Foreground="#999AAA" FontSize="11"/>
+                                <TextBox x:Name="txtMemReviewInterval" Width="42" Margin="6,0" VerticalAlignment="Center"
+                                         ToolTip="Minimum days between memory-review nudges."/>
+                                <TextBlock Text="days, when over" VerticalAlignment="Center" Foreground="#999AAA" FontSize="11"/>
+                                <TextBox x:Name="txtMemReviewThreshold" Width="52" Margin="6,0" VerticalAlignment="Center"
+                                         ToolTip="Only nudge once the estimated memory footprint reaches this size (in thousands of tokens)."/>
+                                <TextBlock Text="k tokens" VerticalAlignment="Center" Foreground="#999AAA" FontSize="11"/>
+                            </StackPanel>
+
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Sessions:" VerticalAlignment="Center" Margin="0,8,0,0"/>
+                            <CheckBox x:Name="chkSessionRestore" Grid.Row="8" Grid.Column="1" Margin="0,8,0,0"
+                                      Content="Offer to reopen sessions after a PC restart"
+                                      ToolTip="If your PC restarts while Claude Code sessions are open, Sidekick offers to reopen them (Chrome-style restore).&#x0a;You can also trigger it any time from the tray: Tools -> Reopen Sessions."/>
                         </Grid>
                     </Border>
                 </StackPanel>

@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     private int _claudeConfigBindingId = -1;
     private int _agentsSkillsBindingId = -1;
     private int _screenshotPasteBindingId = -1;
+    private int _copyReplyBindingId = -1;
 
     public MainWindow()
     {
@@ -79,8 +80,15 @@ public partial class MainWindow : Window
         SetupTrayIcon();
         SetupHotkey();
 
+        // Evaluate the pre-boot snapshot BEFORE the watcher starts writing a fresh one.
+        OfferSessionRestoreOnStartup();
+
         _sessionWatcher.DataChanged += () =>
-            Dispatcher.BeginInvoke(UpdateTokenUI);
+            Dispatcher.BeginInvoke(() =>
+            {
+                UpdateTokenUI();
+                SaveOpenSessionsSnapshotThrottled();
+            });
         _sessionWatcher.Start();
 
         // When Claude Code refreshes the OAuth token, immediately fetch fresh data
@@ -116,6 +124,7 @@ public partial class MainWindow : Window
         // Fire-and-forget update check — delayed so we don't compete with the
         // initial Claude usage fetch, and silent unless something is available.
         _ = CheckForUpdatesBackgroundAsync();
+        _ = CheckMemoryReviewBackgroundAsync();
     }
 
     private readonly System.Threading.CancellationTokenSource _updateCheckCts = new();
@@ -191,6 +200,237 @@ public partial class MainWindow : Window
                 $"Version {update.TargetFullRelease.Version} is ready. Right-click the tray icon → Check for updates… to install.",
                 System.Windows.Forms.ToolTipIcon.Info);
         });
+    }
+
+    // Periodically nudge the user to review + consolidate their Claude Code memory
+    // files. Like the update check: delayed, throttled (weekly by default), and only
+    // shown when the footprint is actually worth reviewing.
+    private async Task CheckMemoryReviewBackgroundAsync()
+    {
+        if (!_appSettings.EnableMemoryReviewSuggestions)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(45), _updateCheckCts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        MemoryAuditResult audit;
+        try
+        {
+            audit = await Task.Run(() => MemoryAuditService.BuildAudit(_appSettings.QuickLaunchEntries));
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Memory audit failed: {ex.Message}");
+            return;
+        }
+
+        if (!MemoryAuditService.ShouldSuggest(_appSettings, audit, DateTimeOffset.UtcNow))
+        {
+            return;
+        }
+
+        // Open the throttle window whether or not the click is acted on.
+        _appSettings.LastMemoryReviewSuggestionUtc = DateTimeOffset.UtcNow;
+        try
+        {
+            SettingsService.Save(_appSettings);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Could not persist LastMemoryReviewSuggestionUtc: {ex.Message}");
+        }
+
+        if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        await Dispatcher.BeginInvoke(() => ShowMemoryReviewBalloon(audit));
+    }
+
+    private void ShowMemoryReviewBalloon(MemoryAuditResult audit)
+    {
+        _pendingBalloonAction = () => ShowMemoryReview(audit);
+        _trayIcon?.ShowBalloonTip(
+            10_000,
+            "Time to review your memory files",
+            $"Claude Code memory is ~{MemoryAuditService.FormatTokens(audit.TotalTokens)} across {audit.FileCount} files. " +
+            "Click for a ready consolidation prompt.",
+            System.Windows.Forms.ToolTipIcon.Info);
+    }
+
+    private DispatcherTimer? _memoryReviewSnoozeTimer;
+
+    // "Remind me in 60 min" — re-shows the nudge after an hour within this session.
+    private void SnoozeMemoryReview(MemoryAuditResult audit)
+    {
+        _memoryReviewSnoozeTimer?.Stop();
+        _memoryReviewSnoozeTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(60) };
+        _memoryReviewSnoozeTimer.Tick += (_, _) =>
+        {
+            _memoryReviewSnoozeTimer?.Stop();
+            ShowMemoryReviewBalloon(audit);
+        };
+        _memoryReviewSnoozeTimer.Start();
+        AppLogger.Info("Memory review snoozed for 60 min");
+    }
+
+    private void ShowMemoryReview(MemoryAuditResult? audit = null)
+    {
+        try
+        {
+            audit ??= MemoryAuditService.BuildAudit(_appSettings.QuickLaunchEntries);
+            var auditForCallbacks = audit;
+            var window = new MemoryReviewWindow(
+                audit,
+                openMemoryManager: ShowClaudeConfig,
+                dontRemind: () =>
+                {
+                    _appSettings.EnableMemoryReviewSuggestions = false;
+                    try { SettingsService.Save(_appSettings); }
+                    catch (Exception ex) { AppLogger.Warn($"Could not persist memory-review opt-out: {ex.Message}"); }
+                },
+                remindLater: () => SnoozeMemoryReview(auditForCallbacks));
+            window.Show();
+            window.Activate();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("ShowMemoryReview failed", ex);
+        }
+    }
+
+    // ---- Session restore (Chrome-style: reopen sessions after a PC restart) ----
+
+    // A session counts as "open" if it saw activity within this window; that set is
+    // snapshotted so it can be offered for restore after a reboot.
+    private static readonly TimeSpan SessionOpenThreshold = TimeSpan.FromMinutes(20);
+    private DateTimeOffset _lastSnapshotSaveUtc = DateTimeOffset.MinValue;
+
+    private void SaveOpenSessionsSnapshotThrottled()
+    {
+        if (!_appSettings.EnableSessionRestore)
+        {
+            return;
+        }
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastSnapshotSaveUtc < TimeSpan.FromSeconds(30))
+        {
+            return;
+        }
+        _lastSnapshotSaveUtc = now;
+
+        try
+        {
+            SessionRestoreService.Save(GetCurrentOpenSessions());
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"SaveOpenSessionsSnapshot failed: {ex.Message}");
+        }
+    }
+
+    // Best guess at which sessions are currently open. The count of running Claude
+    // Code processes tells us HOW MANY terminals are open; we show that many of the
+    // most-recently-active sessions. This catches open-but-idle sessions that a pure
+    // "active in the last 20 min" test would miss. If no processes are detectable,
+    // fall back to the activity heuristic.
+    private List<OpenSessionRef> GetCurrentOpenSessions()
+    {
+        var recent = _sessionWatcher.GetRecentSessions()
+            .Where(s => !string.IsNullOrEmpty(s.SessionId) && !string.IsNullOrEmpty(s.FilePath))
+            .OrderByDescending(s => s.LastSeen)
+            .ToList();
+
+        var running = ClaudeProcessService.GetRunningClaudeCodeCount();
+        IEnumerable<SessionTokenData> chosen = running > 0
+            ? recent.Take(running)
+            : recent.Where(s => s.IsActive(SessionOpenThreshold));
+
+        return chosen.Select(SessionRestoreService.ToRef).ToList();
+    }
+
+    private void OfferSessionRestoreOnStartup()
+    {
+        if (!_appSettings.EnableSessionRestore)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = SessionRestoreService.Load();
+            if (!SessionRestoreService.ShouldOfferRestore(snapshot, SessionRestoreService.BootTimeUtc(), DateTimeOffset.UtcNow))
+            {
+                return;
+            }
+
+            var sessions = snapshot!.Sessions;
+            _pendingBalloonAction = () => ShowSessionRestore(sessions, afterRestart: true);
+            _trayIcon?.ShowBalloonTip(
+                10_000,
+                "Reopen your sessions?",
+                sessions.Count == 1
+                    ? "1 Claude Code session was open before the restart. Click to reopen it."
+                    : $"{sessions.Count} Claude Code sessions were open before the restart. Click to reopen them.",
+                System.Windows.Forms.ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"OfferSessionRestoreOnStartup failed: {ex.Message}");
+        }
+    }
+
+    // Opens the restore picker. When invoked from the tray (no explicit list) it shows
+    // the currently-open sessions; the startup offer passes the pre-boot snapshot.
+    private void ShowSessionRestore(IReadOnlyList<OpenSessionRef>? sessions = null, bool afterRestart = false)
+    {
+        try
+        {
+            sessions ??= GetCurrentOpenSessions();
+
+            if (sessions.Count == 0)
+            {
+                System.Windows.MessageBox.Show(
+                    "No open Claude Code sessions to reopen.",
+                    "Reopen sessions",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var window = new SessionRestoreWindow(sessions, RelaunchSessions, afterRestart);
+            window.Show();
+            window.Activate();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("ShowSessionRestore failed", ex);
+        }
+    }
+
+    private void RelaunchSessions(List<OpenSessionRef> sessions)
+    {
+        foreach (var s in sessions)
+        {
+            try
+            {
+                var entry = new QuickLaunchEntry { Name = s.ProjectName, FolderPath = s.FolderPath ?? "" };
+                ClaudeLauncherService.LaunchResume(entry, s.SessionId, _appSettings.ResumeEffortLevel);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"Relaunch session {s.SessionId} failed: {ex.Message}");
+            }
+        }
     }
 
     private async Task CheckForUpdatesInteractiveAsync()
@@ -285,6 +525,7 @@ public partial class MainWindow : Window
         {
             _screenshotPasteBindingId = _keyboardHook.Register(_appSettings.ScreenshotPasteHotkey, PasteScreenshot);
         }
+        _copyReplyBindingId = _keyboardHook.Register(_appSettings.CopyLatestReplyHotkey, CopyLatestReply);
     }
 
     private void UnregisterAllHotkeys()
@@ -296,15 +537,47 @@ public partial class MainWindow : Window
         _keyboardHook?.Unregister(_claudeConfigBindingId);
         _keyboardHook?.Unregister(_agentsSkillsBindingId);
         _keyboardHook?.Unregister(_screenshotPasteBindingId);
+        _keyboardHook?.Unregister(_copyReplyBindingId);
         _sessionBrowserBindingId = -1;
         _promptLibraryBindingId = -1;
         _permissionManagerBindingId = -1;
         _claudeConfigBindingId = -1;
         _agentsSkillsBindingId = -1;
         _screenshotPasteBindingId = -1;
+        _copyReplyBindingId = -1;
     }
 
     private void ToggleVisibility() => ToggleWidget();
+
+    // Copies Claude's latest reply (from the most recently active session) to the
+    // clipboard as clean original text — GitHub issue #2.
+    private void CopyLatestReply()
+    {
+        try
+        {
+            var newest = _sessionWatcher.GetRecentSessions()
+                .Where(s => !string.IsNullOrEmpty(s.FilePath))
+                .OrderByDescending(s => s.LastSeen)
+                .FirstOrDefault();
+
+            var text = newest is null ? null : LatestReplyService.ExtractLatestAssistantText(newest.FilePath);
+            if (string.IsNullOrEmpty(text))
+            {
+                _trayIcon?.ShowBalloonTip(3000, "Copy reply",
+                    "No recent Claude reply found to copy.", System.Windows.Forms.ToolTipIcon.Info);
+                return;
+            }
+
+            System.Windows.Clipboard.SetText(text);
+            var preview = text.Length > 60 ? text[..60].Replace("\n", " ") + "…" : text.Replace("\n", " ");
+            _trayIcon?.ShowBalloonTip(2500, "Latest reply copied",
+                preview, System.Windows.Forms.ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("CopyLatestReply failed", ex);
+        }
+    }
 
     private void PasteScreenshot()
     {
@@ -686,6 +959,13 @@ public partial class MainWindow : Window
         var agentsItem = new System.Windows.Forms.ToolStripMenuItem("Agents && Skills...", null, (_, _) => ShowAgentsSkills());
         if (IsHotkeyEnabled()) agentsItem.ShortcutKeyDisplayString = _appSettings.AgentsSkillsHotkey;
         toolsMenu.DropDownItems.Add(agentsItem);
+        var reviewMemItem = new System.Windows.Forms.ToolStripMenuItem("Review Memory...", null, (_, _) => ShowMemoryReview());
+        toolsMenu.DropDownItems.Add(reviewMemItem);
+        var reopenItem = new System.Windows.Forms.ToolStripMenuItem("Reopen Sessions...", null, (_, _) => ShowSessionRestore());
+        toolsMenu.DropDownItems.Add(reopenItem);
+        var copyReplyItem = new System.Windows.Forms.ToolStripMenuItem("Copy Latest Reply", null, (_, _) => CopyLatestReply());
+        if (IsHotkeyEnabled()) copyReplyItem.ShortcutKeyDisplayString = _appSettings.CopyLatestReplyHotkey;
+        toolsMenu.DropDownItems.Add(copyReplyItem);
         menu.Items.Add(toolsMenu);
 
         // Settings section
@@ -1686,8 +1966,19 @@ public partial class MainWindow : Window
             System.Windows.Forms.ToolTipIcon.Info);
     }
 
+    // Set by whichever feature showed the most recent balloon; invoked when the
+    // user clicks it. Takes precedence over the permission-suggestion path below.
+    private Action? _pendingBalloonAction;
+
     private void OnBalloonClick(object? sender, EventArgs e)
     {
+        if (_pendingBalloonAction is { } action)
+        {
+            _pendingBalloonAction = null;
+            action();
+            return;
+        }
+
         if (_pendingSuggestion == null)
         {
             return;

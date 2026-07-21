@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.7] — 2026-07-22
+
+### Added
+- **Reopen sessions after a PC restart** (Chrome-style). If your machine
+  restarts while Claude Code sessions are open, Sidekick offers to reopen
+  them — pick which ones from a list, and they relaunch with `--resume` in
+  their folders. Also available any time from the tray: **Tools → Reopen
+  Sessions**. How many are shown is inferred from the number of running
+  Claude Code processes, so open-but-idle sessions are included. Toggle in
+  **Settings → Compact Recommendations → Sessions**.
+- **Memory cleanup suggestions.** Sidekick periodically estimates your Claude
+  Code memory footprint (global + project `CLAUDE.md`/`AGENTS.md`,
+  `.claude/rules/*.md`, and auto-memory `MEMORY.md` + entries) and, once it
+  grows large enough, nudges you to review it — the **Memory Review** window
+  shows each file's rough token cost and hands you a ready prompt to paste
+  into Claude Code, which then consolidates the files itself (dedupe, drop
+  stale entries, keep memory lean). Snooze for an hour, dismiss, or open it
+  any time from the tray: **Tools → Review Memory**. Interval + size threshold
+  are configurable.
+- **Copy Claude's latest reply** to the clipboard with a global hotkey
+  (default **Ctrl+Alt+R**) as clean, original text — no console indentation or
+  width-based line wrapping (resolves [#2](https://github.com/RafalZG/claude-sessions-sidekick/issues/2)).
+  Reads the reply straight from the session file, so it's the text as authored.
+  Also under the tray **Tools → Copy Latest Reply**; hotkey configurable in
+  **Settings → Global Hotkeys**.
+
+### Changed
+- **Deleting a session** in the Session Browser now moves the file to the
+  **Recycle Bin** (restorable) instead of removing it permanently.
+
 ## [1.0.6] — 2026-07-16
 
 ### Added

@@ -96,6 +96,7 @@ public partial class SettingsWindow : Window
         parts.Add(BuildHotkeyFromCombos(cmbClaudeMod1, cmbClaudeMod2, cmbClaudeKey) ?? "");
         parts.Add(BuildHotkeyFromCombos(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey) ?? "");
         parts.Add(BuildHotkeyFromCombos(cmbShotMod1, cmbShotMod2, cmbShotKey) ?? "");
+        parts.Add(BuildHotkeyFromCombos(cmbCopyReplyMod1, cmbCopyReplyMod2, cmbCopyReplyKey) ?? "");
         parts.Add((chkScreenshotPaste?.IsChecked == true).ToString());
         parts.Add(txtShotRetention?.Text?.Trim() ?? "");
         parts.Add(txtShotFolder?.Text?.Trim() ?? "");
@@ -104,6 +105,10 @@ public partial class SettingsWindow : Window
         parts.Add((chkPermissionSuggestions?.IsChecked == true).ToString());
         parts.Add((chkShowActiveSessions?.IsChecked == true).ToString());
         parts.Add((chkCheckForUpdatesOnStartup?.IsChecked == true).ToString());
+        parts.Add((chkMemoryReview?.IsChecked == true).ToString());
+        parts.Add(txtMemReviewInterval?.Text?.Trim() ?? "");
+        parts.Add(txtMemReviewThreshold?.Text?.Trim() ?? "");
+        parts.Add((chkSessionRestore?.IsChecked == true).ToString());
         parts.Add(((cmbShell?.SelectedItem as ComboBoxItem)?.Tag ?? ShellType.Auto).ToString()!);
         parts.Add(txtClaudeExe?.Text?.Trim() ?? "");
         parts.Add(txtClaudeHome?.Text?.Trim() ?? "");
@@ -660,6 +665,8 @@ public partial class SettingsWindow : Window
             ?? _settings.AgentsSkillsHotkey;
         _settings.ScreenshotPasteHotkey = BuildHotkeyFromCombos(cmbShotMod1, cmbShotMod2, cmbShotKey)
             ?? _settings.ScreenshotPasteHotkey;
+        _settings.CopyLatestReplyHotkey = BuildHotkeyFromCombos(cmbCopyReplyMod1, cmbCopyReplyMod2, cmbCopyReplyKey)
+            ?? _settings.CopyLatestReplyHotkey;
         _settings.EnableScreenshotPasteHotkey = chkScreenshotPaste.IsChecked == true;
         if (int.TryParse(txtShotRetention.Text.Trim(), out var shotRetention) && shotRetention >= 0)
         {
@@ -667,6 +674,7 @@ public partial class SettingsWindow : Window
         }
         var shotFolder = txtShotFolder.Text.Trim();
         _settings.ScreenshotSaveDir = string.IsNullOrEmpty(shotFolder) ? null : shotFolder;
+        _settings.EnableSessionRestore = chkSessionRestore.IsChecked == true;
         _settings.CompactAggressiveness = (cmbAggressiveness.SelectedItem as ComboBoxItem)?.Tag is CompactAggressiveness a
             ? a : CompactAggressiveness.Balanced;
         _settings.CustomWarningPercent = (int)sliderWarning.Value;
@@ -675,6 +683,15 @@ public partial class SettingsWindow : Window
         _settings.EnablePermissionSuggestions = chkPermissionSuggestions.IsChecked == true;
         _settings.ShowActiveSessions = chkShowActiveSessions.IsChecked == true;
         _settings.CheckForUpdatesOnStartup = chkCheckForUpdatesOnStartup.IsChecked == true;
+        _settings.EnableMemoryReviewSuggestions = chkMemoryReview.IsChecked == true;
+        if (int.TryParse(txtMemReviewInterval.Text.Trim(), out var memInterval) && memInterval >= 1)
+        {
+            _settings.MemoryReviewIntervalDays = memInterval;
+        }
+        if (int.TryParse(txtMemReviewThreshold.Text.Trim(), out var memThresholdK) && memThresholdK >= 0)
+        {
+            _settings.MemoryReviewThresholdTokens = memThresholdK * 1000;
+        }
         _settings.PreferredShell = (cmbShell.SelectedItem as ComboBoxItem)?.Tag is ShellType s
             ? s : ShellType.Auto;
         var exePath = txtClaudeExe.Text.Trim();
@@ -694,6 +711,7 @@ public partial class SettingsWindow : Window
         PopulateGlobalComboSet(cmbClaudeMod1, cmbClaudeMod2, cmbClaudeKey, _settings.ClaudeConfigHotkey);
         PopulateGlobalComboSet(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey, _settings.AgentsSkillsHotkey);
         PopulateGlobalComboSet(cmbShotMod1, cmbShotMod2, cmbShotKey, _settings.ScreenshotPasteHotkey);
+        PopulateGlobalComboSet(cmbCopyReplyMod1, cmbCopyReplyMod2, cmbCopyReplyKey, _settings.CopyLatestReplyHotkey);
         chkScreenshotPaste.IsChecked = _settings.EnableScreenshotPasteHotkey;
         txtShotRetention.Text = _settings.ScreenshotRetentionCount.ToString();
         txtShotFolder.Text = _settings.ScreenshotSaveDir ?? string.Empty;
@@ -728,6 +746,10 @@ public partial class SettingsWindow : Window
         chkPermissionSuggestions.IsChecked = _settings.EnablePermissionSuggestions;
         chkShowActiveSessions.IsChecked = _settings.ShowActiveSessions;
         chkCheckForUpdatesOnStartup.IsChecked = _settings.CheckForUpdatesOnStartup;
+        chkMemoryReview.IsChecked = _settings.EnableMemoryReviewSuggestions;
+        txtMemReviewInterval.Text = _settings.MemoryReviewIntervalDays.ToString();
+        txtMemReviewThreshold.Text = (_settings.MemoryReviewThresholdTokens / 1000).ToString();
+        chkSessionRestore.IsChecked = _settings.EnableSessionRestore;
 
         _suppressModEvents = false;
     }
@@ -858,6 +880,7 @@ public partial class SettingsWindow : Window
         var claudeHk = BuildHotkeyFromCombos(cmbClaudeMod1, cmbClaudeMod2, cmbClaudeKey);
         var agentsHk = BuildHotkeyFromCombos(cmbAgentsMod1, cmbAgentsMod2, cmbAgentsKey);
         var shotHk = BuildHotkeyFromCombos(cmbShotMod1, cmbShotMod2, cmbShotKey);
+        var copyReplyHk = BuildHotkeyFromCombos(cmbCopyReplyMod1, cmbCopyReplyMod2, cmbCopyReplyKey);
 
         // Check duplicates among global shortcuts
         var globalHotkeys = new[]
@@ -868,7 +891,8 @@ public partial class SettingsWindow : Window
             ("Permission Manager", permHk),
             ("Memory Manager", claudeHk),
             ("Agents & Skills", agentsHk),
-            ("Screenshot Paste", shotHk)
+            ("Screenshot Paste", shotHk),
+            ("Copy Last Reply", copyReplyHk)
         };
         for (int i = 0; i < globalHotkeys.Length; i++)
         {
@@ -887,7 +911,7 @@ public partial class SettingsWindow : Window
         var warnings = new List<string>();
         foreach (var entry in _entries)
         {
-            if (entry.Hotkey != null && (entry.Hotkey == widgetHk || entry.Hotkey == browserHk || entry.Hotkey == promptHk || entry.Hotkey == permHk || entry.Hotkey == claudeHk || entry.Hotkey == agentsHk || entry.Hotkey == shotHk))
+            if (entry.Hotkey != null && (entry.Hotkey == widgetHk || entry.Hotkey == browserHk || entry.Hotkey == promptHk || entry.Hotkey == permHk || entry.Hotkey == claudeHk || entry.Hotkey == agentsHk || entry.Hotkey == shotHk || entry.Hotkey == copyReplyHk))
             {
                 warnings.Add($"{entry.Hotkey} conflicts with Quick Launch Project \"{entry.Name}\"");
             }
