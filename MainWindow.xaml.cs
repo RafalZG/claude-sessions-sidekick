@@ -549,18 +549,28 @@ public partial class MainWindow : Window
 
     private void ToggleVisibility() => ToggleWidget();
 
-    // Copies Claude's latest reply (from the most recently active session) to the
-    // clipboard as clean original text — GitHub issue #2.
+    // Copies Claude's latest reply to the clipboard as clean original text —
+    // from the session in the focused window, or the most recently active
+    // session when no Claude window has focus. GitHub issues #2 and #3.
     private void CopyLatestReply()
     {
         try
         {
-            var newest = _sessionWatcher.GetRecentSessions()
+            var sessions = _sessionWatcher.GetRecentSessions()
                 .Where(s => !string.IsNullOrEmpty(s.FilePath))
+                .ToList();
+
+            // Prefer the session shown in the window the user has in focus
+            // (issue #2/#3) — copying from a hotkey while working in one of
+            // several terminals should grab THAT window's reply. When focus
+            // isn't on a Claude window (e.g. tray menu click), fall back to
+            // the newest session overall, as before.
+            var focused = FocusedSessionService.ResolveForegroundSession(sessions);
+            var target = focused ?? sessions
                 .OrderByDescending(s => s.LastSeen)
                 .FirstOrDefault();
 
-            var text = newest is null ? null : LatestReplyService.ExtractLatestAssistantText(newest.FilePath);
+            var text = target is null ? null : LatestReplyService.ExtractLatestAssistantText(target.FilePath);
             if (string.IsNullOrEmpty(text))
             {
                 _trayIcon?.ShowBalloonTip(3000, "Copy reply",
@@ -569,8 +579,12 @@ public partial class MainWindow : Window
             }
 
             System.Windows.Clipboard.SetText(text);
+            var sessionLabel = target!.CustomName ?? target.Slug ?? target.ProjectName;
+            var title = string.IsNullOrWhiteSpace(sessionLabel)
+                ? "Latest reply copied"
+                : $"Latest reply copied — {sessionLabel}";
             var preview = text.Length > 60 ? text[..60].Replace("\n", " ") + "…" : text.Replace("\n", " ");
-            _trayIcon?.ShowBalloonTip(2500, "Latest reply copied",
+            _trayIcon?.ShowBalloonTip(2500, title,
                 preview, System.Windows.Forms.ToolTipIcon.Info);
         }
         catch (Exception ex)

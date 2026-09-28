@@ -8,9 +8,12 @@ namespace ClaudeSessionsSidekick.Services;
 /// Used to filter "active sessions" so closed Claude windows stop being counted
 /// just because their JSONL was written to recently.
 ///
-/// Claude Code CLI runs as `node.exe` with a command line containing
-/// `@anthropic-ai\claude-code\cli.js`. We enumerate node.exe processes and
-/// query each one's command line via the NT process information API.
+/// Claude Code CLI runs either as the native `claude.exe` launcher (winget
+/// installs) or as `node.exe` with a command line containing
+/// `@anthropic-ai\claude-code\cli.js` (npm installs). We enumerate both and
+/// query each one's command line via the NT process information API;
+/// FocusedSessionResolver.IsClaudeCliProcess decides what counts, so Electron
+/// helper processes of the Claude desktop app are not counted several times.
 /// </summary>
 public static class ClaudeProcessService
 {
@@ -35,37 +38,8 @@ public static class ClaudeProcessService
 
             try
             {
-                int count = 0;
-
-                // CLI: node.exe running @anthropic-ai/claude-code/cli.js
-                foreach (var p in Process.GetProcessesByName("node"))
-                {
-                    try
-                    {
-                        var cmdLine = GetCommandLine(p.Id);
-                        if (cmdLine != null &&
-                            cmdLine.IndexOf("claude-code", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                            cmdLine.IndexOf("cli.js", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            count++;
-                        }
-                    }
-                    catch
-                    {
-                        // Ignore individual process query failures (e.g. permission denied)
-                    }
-                    finally
-                    {
-                        p.Dispose();
-                    }
-                }
-
-                // Desktop App: Claude.exe (Electron-based, runs on Win 11 / macOS)
-                foreach (var p in Process.GetProcessesByName("Claude"))
-                {
-                    count++;
-                    p.Dispose();
-                }
+                var count = CountProcesses("node", "node.exe")
+                    + CountProcesses("claude", "claude.exe");
 
                 _cachedCount = count;
                 _cachedAt = DateTime.UtcNow;
@@ -79,6 +53,32 @@ public static class ClaudeProcessService
                 return -1;
             }
         }
+    }
+
+    private static int CountProcesses(string processName, string exeName)
+    {
+        var count = 0;
+        foreach (var p in Process.GetProcessesByName(processName))
+        {
+            try
+            {
+                var cmdLine = GetCommandLine(p.Id);
+                if (FocusedSessionResolver.IsClaudeCliProcess(exeName, cmdLine))
+                {
+                    count++;
+                }
+            }
+            catch
+            {
+                // Ignore individual process query failures (e.g. permission denied)
+            }
+            finally
+            {
+                p.Dispose();
+            }
+        }
+
+        return count;
     }
 
     public static void InvalidateCache()
@@ -121,7 +121,7 @@ public static class ClaudeProcessService
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool CloseHandle(IntPtr hObject);
 
-    private static string? GetCommandLine(int pid)
+    internal static string? GetCommandLine(int pid)
     {
         var handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
         if (handle == IntPtr.Zero)

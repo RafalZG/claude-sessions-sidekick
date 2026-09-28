@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.8] — 2026-09-29
+
+### Fixed
+- **Copy Last Reply now copies from the session in the focused window**, not
+  the most recently active session across all windows (resolves
+  [#3](https://github.com/RafalZG/claude-sessions-sidekick/issues/3) and the
+  follow-up report on [#2](https://github.com/RafalZG/claude-sessions-sidekick/issues/2)).
+  Sidekick finds the Claude Code process running under the window you have in
+  focus (walking the process tree from the foreground window, for both the
+  native `claude.exe` launcher and npm's `node cli.js`) and matches it to its
+  session by `--resume` ID or working directory; when several Claude tabs
+  share one window, the window title picks the visible one. If no Claude
+  window has focus — e.g. copying from the tray menu — it falls back to the
+  newest session overall, as before. The "copied" notification now also names
+  the session it copied from, so you can tell at a glance it grabbed the
+  right one.
+- **Running-session count now detects the native `claude.exe` launcher**
+  (winget installs), where it previously only recognized npm's `node cli.js`
+  and could report zero — and it no longer over-counts when the Claude
+  desktop app is running (its Electron helper processes were each counted as
+  a session). This makes active-session filtering and the restart "Reopen
+  Sessions" count accurate on winget installs.
+
 ## [1.0.7] — 2026-07-22
 
 ### Added
