@@ -158,6 +158,9 @@
             <TextBlock Text="Session Browser" FontSize="15" FontWeight="Bold"
                        Foreground="#A0B0FF" VerticalAlignment="Center"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button x:Name="btnReopenSessions" Content="Reopen sessions..." Click="BtnReopenSessions_Click"
+                        Padding="8,2" FontSize="12" Margin="0,0,10,0"
+                        ToolTip="Reopen the sessions that are open now, were open before the last restart,&#x0a;or any earlier set from the last 30 days"/>
                 <Button Content="&#x21BB;" Click="BtnRefresh_Click" Padding="4,2" FontSize="13"
                         ToolTip="Refresh session list" Margin="0,0,10,0"/>
                 <TextBlock x:Name="txtSessionCount" Foreground="#888899" FontSize="12"

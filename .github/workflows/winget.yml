@@ -1,0 +1,45 @@
+name: Winget submit
+
+# Manual gate for the winget catalog: the GitHub release ships automatically
+# from a tag push (release.yml), but the winget manifest PR is opened only
+# when this workflow is run by hand — after the release has been click-tested.
+# Run it from the Actions tab ("Winget submit" -> Run workflow) with the bare
+# version number, e.g. 1.0.9.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Released version to submit (without the leading v), e.g. 1.0.9'
+        required: true
+        type: string
+
+jobs:
+  winget:
+    name: Submit to winget catalog
+    runs-on: windows-latest
+
+    steps:
+      - name: Publish manifest to winget-pkgs
+        # `vedantmgoyal2009/winget-releaser` runs komac to regenerate the
+        # manifest from the release's Setup.exe, opens a fork PR against
+        # microsoft/winget-pkgs, and waits for moderator review. The app is
+        # self-contained, so the manifest legitimately ships without a
+        # Dependencies block.
+        #
+        # WINGET_TOKEN is a classic PAT on the publishing account (RafalZG)
+        # with `public_repo` + `workflow` scopes — `workflow` is needed when
+        # komac's sync-fork fast-forwards upstream changes that touch
+        # .github/workflows (hit on v1.0.8). The default GITHUB_TOKEN cannot
+        # be used because it can't push to a personal fork of an unrelated
+        # org's repo.
+        #
+        # Pinned to a `main`-branch SHA (2026-03-15) instead of the `v2` tag
+        # because v2 (2025-01-27) predates the `release-notes-url` input,
+        # which wingetbot's Manifest-Metadata-Consistency check requires here.
+        uses: vedantmgoyal2009/winget-releaser@7bd472be23763def6e16bd06cc8b1cdfab0e2fd5
+        with:
+          identifier: RafalZG.ClaudeSessionsSidekick
+          version: ${{ inputs.version }}
+          installers-regex: 'ClaudeSessionsSidekick-win-Setup\.exe$'
+          release-notes-url: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v${{ inputs.version }}
+          token: ${{ secrets.WINGET_TOKEN }}

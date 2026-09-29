@@ -140,47 +140,6 @@ jobs:
             Write-Host "::warning::notes step failed: $($_.Exception.Message)"
           }
 
-  winget:
-    # Auto-submit a manifest PR to microsoft/winget-pkgs once the GitHub release
-    # is live. Skips pre-release tags (`v1.0.0-rc1` etc.) — only clean
-    # `vMAJOR.MINOR.PATCH` tags go to the winget catalog, matching what the
-    # winget moderators expect to see.
-    name: Submit to winget catalog
-    needs: release
-    if: ${{ !contains(needs.release.outputs.version, '-') }}
-    runs-on: windows-latest
-
-    steps:
-      - name: Publish manifest to winget-pkgs
-        # `vedantmgoyal2009/winget-releaser` runs komac to regenerate the
-        # manifest from the new Setup.exe, opens a fork PR against
-        # microsoft/winget-pkgs, and waits for moderator review. Because the app
-        # is now self-contained there is NO .NET runtime dependency to declare —
-        # the manifest legitimately ships without a Dependencies block. The
-        # published baseline (1.0.0) still lists Dependencies, so this first
-        # self-contained release trips wingetbot's Manifest-Metadata-Consistency
-        # check and needs a one-time moderator override; after it merges the new
-        # baseline has no Dependencies and later releases stay consistent.
-        # NOTE: komac mis-detects Velopack as Scope: machine — hand-fix the PR
-        # branch to `Scope: user` (Velopack installs per-user to %LocalAppData%)
-        # before requesting merge.
-        #
-        # WINGET_TOKEN is a classic PAT with `public_repo` scope on the
-        # publishing account (RafalZG). Stored as a repo secret. The default
-        # GITHUB_TOKEN cannot be used because it can't push to a personal fork
-        # of an unrelated org's repo.
-        #
-        # Pinned to a `main`-branch SHA (2026-03-15) instead of the `v2` tag
-        # because v2 (2025-01-27) predates the `release-notes-url` input. Without
-        # that input wingetbot's Manifest-Metadata-Consistency check fails every
-        # release — the 1.0.0 locale.yaml carries ReleaseNotesUrl, so every
-        # subsequent version must too, and komac only emits the field when
-        # `--release-notes-url` is passed. We hit this on v1.0.2 and had to
-        # manually edit the PR-branch locale.yaml to unblock the merge.
-        uses: vedantmgoyal2009/winget-releaser@7bd472be23763def6e16bd06cc8b1cdfab0e2fd5
-        with:
-          identifier: RafalZG.ClaudeSessionsSidekick
-          version: ${{ needs.release.outputs.version }}
-          installers-regex: 'ClaudeSessionsSidekick-win-Setup\.exe$'
-          release-notes-url: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v${{ needs.release.outputs.version }}
-          token: ${{ secrets.WINGET_TOKEN }}
+# The winget submission moved to winget.yml (workflow_dispatch): the GitHub
+# release ships automatically from the tag, the winget catalog PR is opened
+# by hand after the release has been click-tested.

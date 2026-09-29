@@ -34,10 +34,16 @@ public partial class SessionBrowserWindow : Window
         System.Windows.Controls.DataGridLength Width,
         int DisplayIndex);
 
-    public SessionBrowserWindow(CompactAggressiveness aggressiveness = CompactAggressiveness.Balanced)
+    private readonly Action? _openSessionRestore;
+
+    public SessionBrowserWindow(
+        CompactAggressiveness aggressiveness = CompactAggressiveness.Balanced
+        , Action? openSessionRestore = null)
     {
         _aggressiveness = aggressiveness;
+        _openSessionRestore = openSessionRestore;
         InitializeComponent();
+        btnReopenSessions.Visibility = openSessionRestore != null ? Visibility.Visible : Visibility.Collapsed;
         // Capture XAML-declared defaults BEFORE any saved geometry overrides
         // them so "Restore default" can put the window back to its
         // shipped size.
@@ -603,6 +609,11 @@ public partial class SessionBrowserWindow : Window
         {
             Close();
         }
+    }
+
+    private void BtnReopenSessions_Click(object sender, RoutedEventArgs e)
+    {
+        _openSessionRestore?.Invoke();
     }
 
     private async void BtnRefresh_Click(object sender, RoutedEventArgs e)

@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.9] — 2026-09-30
+
+### Fixed
+- **Copy Last Reply: better tab detection when several Claude windows share
+  one terminal process** (follow-up to the v1.0.8 report on
+  [#2](https://github.com/RafalZG/claude-sessions-sidekick/issues/2)/[#3](https://github.com/RafalZG/claude-sessions-sidekick/issues/3)).
+  Windows Terminal keeps ALL its windows in a single process by default, so
+  the window title is the only thing telling the focused session apart — and
+  Claude often titles the tab with a task description ("Review and
+  investigate…") that contains no session name. The title match now falls
+  back to word overlap with the session's first message, so those
+  description-style titles pick the right session too. The hotkey also
+  writes a decision trace to `app.log` (`%APPDATA%\ClaudeSessionsSidekick`),
+  so if the wrong session still wins, the log shows exactly why —
+  please attach it when reporting.
+- **"Reopen sessions" after a restart now captures ALL open sessions.** The
+  snapshot no longer guesses ("take the N most recently active sessions") —
+  it enumerates the running Claude Code processes and maps each one to its
+  session by `--resume` ID or working directory, so a session that sat idle
+  for hours (previously dropped, e.g. 5 open → only 3 restored) stays in the
+  snapshot. Two terminals in the same project folder correctly count as two
+  sessions, and a session the tracker has never seen is recovered straight
+  from its project folder on disk.
+
+### Added
+- **Session-set history (last 30 days) in the "Reopen sessions" window.**
+  Sidekick keeps a journal of how the set of open sessions changed over time;
+  a dropdown in the restore window lets you go back to any earlier moment —
+  "what was open Friday morning" — and reopen those sessions. Sessions from a
+  past snapshot that are already running now are marked "open now" and start
+  unticked, so Select all can't accidentally resume them twice. The window
+  can also be opened when nothing is running, to reach the history.
+- **"Reopen sessions..." button in the Session Browser**, so the restore
+  window (and its history) is reachable without going through the tray menu.
+
+### Changed
+- The automatic after-restart restore offer now appears for snapshots up to
+  7 days old (was 24 hours), so a machine that stayed off over a weekend
+  still gets the offer.
+- Opening "Reopen sessions" by hand shortly after a reboot shows the
+  pre-restart set by default — dismissing the restore balloon no longer
+  loses it.
+
+### Security
+- Session IDs read from the restore snapshot/journal files are validated as
+  GUIDs before being placed on a `claude --resume` command line, the restore
+  files are size-capped and sanitized on load, and folder paths are escaped
+  when embedded in a PowerShell launch command.
+
 ## [1.0.8] — 2026-09-29
 
 ### Fixed

@@ -52,10 +52,19 @@ public class SessionRestoreServiceTests
     [Fact]
     public void ShouldOfferRestore_TooOld_False()
     {
-        // Captured before boot, but the reboot (and now) is >24h after capture.
-        var captured = new DateTimeOffset(2026, 7, 20, 8, 0, 0, TimeSpan.Zero); // 2 days before "now"
+        // Captured before boot, but the capture is older than MaxSnapshotAge (7 days).
+        var captured = Now.AddDays(-10);
         var snap = Snap(captured);
         Assert.False(SessionRestoreService.ShouldOfferRestore(snap, Boot, Now));
+    }
+
+    [Fact]
+    public void ShouldOfferRestore_WeekendShutdown_True()
+    {
+        // PC off Friday evening, back Monday morning — 3 days is within MaxSnapshotAge.
+        var captured = Now.AddDays(-3);
+        var snap = Snap(captured);
+        Assert.True(SessionRestoreService.ShouldOfferRestore(snap, Boot, Now));
     }
 
     [Fact]
@@ -82,5 +91,126 @@ public class SessionRestoreServiceTests
     {
         // Uptime is always positive, so boot time must be before now.
         Assert.True(SessionRestoreService.BootTimeUtc() <= DateTimeOffset.UtcNow);
+    }
+
+    // ── AppendSnapshot (snapshot journal) ──────────────────────────
+
+    [Fact]
+    public void AppendSnapshot_AddsEntry_WhenSetChanged()
+    {
+        // Arrange
+        var history = new List<OpenSessionSnapshot> { Snap(Now.AddHours(-1), n: 2) };
+        var snapshot = Snap(Now, n: 3);
+
+        // Act
+        var updated = SessionRestoreService.AppendSnapshot(history, snapshot, Now);
+
+        // Assert
+        Assert.Equal(2, updated.Count);
+        Assert.Same(snapshot, updated[^1]);
+    }
+
+    [Fact]
+    public void AppendSnapshot_ReturnsSameList_WhenSameSessionSet()
+    {
+        // Arrange — same session IDs, only the capture time moved on.
+        var history = new List<OpenSessionSnapshot> { Snap(Now.AddHours(-1), n: 2) };
+        var snapshot = Snap(Now, n: 2);
+
+        // Act
+        var updated = SessionRestoreService.AppendSnapshot(history, snapshot, Now);
+
+        // Assert — same instance back = caller knows nothing needs saving.
+        Assert.Same(history, updated);
+    }
+
+    [Fact]
+    public void AppendSnapshot_AddsEntry_WhenSameCountButDifferentIds()
+    {
+        // Arrange — last entry holds two distinct sessions; the new one repeats
+        // a single id twice (same count, different set).
+        var last = Snap(Now.AddHours(-1), n: 2);
+        var history = new List<OpenSessionSnapshot> { last };
+        var snapshot = new OpenSessionSnapshot { CapturedUtc = Now };
+        snapshot.Sessions.Add(new OpenSessionRef { SessionId = "id0" });
+        snapshot.Sessions.Add(new OpenSessionRef { SessionId = "id0" });
+
+        // Act
+        var updated = SessionRestoreService.AppendSnapshot(history, snapshot, Now);
+
+        // Assert
+        Assert.Equal(2, updated.Count);
+        Assert.Same(snapshot, updated[^1]);
+    }
+
+    [Fact]
+    public void AppendSnapshot_IgnoresEmptySnapshot()
+    {
+        // Arrange
+        var history = new List<OpenSessionSnapshot> { Snap(Now.AddHours(-1), n: 2) };
+        var snapshot = Snap(Now, n: 0);
+
+        // Act
+        var updated = SessionRestoreService.AppendSnapshot(history, snapshot, Now);
+
+        // Assert
+        Assert.Same(history, updated);
+    }
+
+    [Fact]
+    public void AppendSnapshot_DropsEntriesPastRetention()
+    {
+        // Arrange — one entry well past the 30-day window, one fresh.
+        var history = new List<OpenSessionSnapshot>
+        {
+            Snap(Now.AddDays(-40), n: 1),
+            Snap(Now.AddDays(-2), n: 2),
+        };
+        var snapshot = Snap(Now, n: 3);
+
+        // Act
+        var updated = SessionRestoreService.AppendSnapshot(history, snapshot, Now);
+
+        // Assert
+        Assert.Equal(2, updated.Count);
+        Assert.Equal(Now.AddDays(-2), updated[0].CapturedUtc);
+        Assert.Same(snapshot, updated[^1]);
+    }
+
+    [Fact]
+    public void AppendSnapshot_CapsEntryCount()
+    {
+        // Arrange — a full journal of distinct recent entries.
+        var history = new List<OpenSessionSnapshot>();
+        for (var i = 0; i < SessionRestoreService.MaxHistoryEntries; i++)
+        {
+            var entry = new OpenSessionSnapshot { CapturedUtc = Now.AddMinutes(-i - 1) };
+            entry.Sessions.Add(new OpenSessionRef { SessionId = $"unique{i}" });
+            history.Add(entry);
+        }
+        var snapshot = Snap(Now, n: 1);
+
+        // Act
+        var updated = SessionRestoreService.AppendSnapshot(history, snapshot, Now);
+
+        // Assert — oldest dropped, newest kept.
+        Assert.Equal(SessionRestoreService.MaxHistoryEntries, updated.Count);
+        Assert.Same(snapshot, updated[^1]);
+    }
+
+    // ── EncodeProjectDirName ───────────────────────────────────────
+
+    [Theory]
+    [InlineData(@"D:\XGGProjectsGit\ExergyERP_Dev", "D--XGGProjectsGit-ExergyERP-Dev")]
+    [InlineData(@"C:\Users\john.doe\my app", "C--Users-john-doe-my-app")]
+    [InlineData(@"D:\proj\", "D--proj")]
+    [InlineData("D:/proj/sub", "D--proj-sub")]
+    public void EncodeProjectDirName_MatchesClaudeFolderNaming(string cwd, string expected)
+    {
+        // Act
+        var encoded = SessionRestoreService.EncodeProjectDirName(cwd);
+
+        // Assert
+        Assert.Equal(expected, encoded);
     }
 }

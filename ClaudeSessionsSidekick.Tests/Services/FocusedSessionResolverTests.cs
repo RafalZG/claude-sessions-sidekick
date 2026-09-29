@@ -11,7 +11,8 @@ public class FocusedSessionResolverTests
         , string? slug = null
         , string? customName = null
         , string projectName = ""
-        , int minutesAgo = 0)
+        , int minutesAgo = 0
+        , string? firstMessage = null)
     {
         var session = new SessionTokenData
         {
@@ -22,6 +23,7 @@ public class FocusedSessionResolverTests
             CustomName = customName,
             ProjectName = projectName,
             LastSeen = DateTimeOffset.UtcNow.AddMinutes(-minutesAgo),
+            FirstMessage = firstMessage,
         };
         return session;
     }
@@ -400,6 +402,103 @@ public class FocusedSessionResolverTests
         }
 
         [Fact]
+        public void TaskDescriptionTitle_MatchesByWordOverlapWithFirstMessage()
+        {
+            // Arrange — MonitorMike's scenario: two Claude windows share one
+            // WindowsTerminal.exe process, and the focused window's title is a
+            // task description written by Claude, not the session's slug. The
+            // FOCUSED session is older; substring matching finds nothing, so
+            // before the word-overlap pass the newer session wrongly won.
+            var focused = MakeSession("aaaaaaaa-1111-4111-8111-111111111111",
+                cwd: @"D:\repoA", slug: "keen-mixing-origami", minutesAgo: 30,
+                firstMessage: "please review and investigate the flaky integration tests in CI");
+            var newerOther = MakeSession("bbbbbbbb-2222-4222-8222-222222222222",
+                cwd: @"D:\repoB", slug: "brave-jumping-lizard", minutesAgo: 1,
+                firstMessage: "add sequence numbers to the export list");
+            var sessions = new List<SessionTokenData> { focused, newerOther };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\repoA"),
+                new(200, "node cli.js", @"D:\repoB"),
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(
+                sessions, procs, "Review and investigate flaky integration tests");
+
+            // Assert
+            Assert.Same(focused, resolved);
+        }
+
+        [Fact]
+        public void SubstringMatch_BeatsWordOverlap()
+        {
+            // Arrange — one session's slug appears verbatim in the title; the
+            // other only shares words. The exact match must win.
+            var bySlug = MakeSession("aaaaaaaa-1111-4111-8111-111111111111",
+                cwd: @"D:\repoA", slug: "review-tests", minutesAgo: 30);
+            var byWords = MakeSession("bbbbbbbb-2222-4222-8222-222222222222",
+                cwd: @"D:\repoB", slug: "other-slug", minutesAgo: 1,
+                firstMessage: "review the tests carefully");
+            var sessions = new List<SessionTokenData> { bySlug, byWords };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\repoA"),
+                new(200, "node cli.js", @"D:\repoB"),
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(sessions, procs, "✳ review-tests");
+
+            // Assert
+            Assert.Same(bySlug, resolved);
+        }
+
+        [Fact]
+        public void NoWordOverlapAtAll_FallsBackToNewest()
+        {
+            // Arrange
+            var older = MakeSession("aaaaaaaa-1111-4111-8111-111111111111",
+                cwd: @"D:\repoA", slug: "slug-one", minutesAgo: 30, firstMessage: "first thing");
+            var newer = MakeSession("bbbbbbbb-2222-4222-8222-222222222222",
+                cwd: @"D:\repoB", slug: "slug-two", minutesAgo: 1, firstMessage: "second thing");
+            var sessions = new List<SessionTokenData> { older, newer };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\repoA"),
+                new(200, "node cli.js", @"D:\repoB"),
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(sessions, procs, "Windows PowerShell");
+
+            // Assert
+            Assert.Same(newer, resolved);
+        }
+
+        [Fact]
+        public void EqualWordOverlap_FallsBackToNewest()
+        {
+            // Arrange — both first messages share the same words with the title.
+            var older = MakeSession("aaaaaaaa-1111-4111-8111-111111111111",
+                cwd: @"D:\repoA", minutesAgo: 30, firstMessage: "deploy the payment service");
+            var newer = MakeSession("bbbbbbbb-2222-4222-8222-222222222222",
+                cwd: @"D:\repoB", minutesAgo: 1, firstMessage: "deploy the payment gateway");
+            var sessions = new List<SessionTokenData> { older, newer };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\repoA"),
+                new(200, "node cli.js", @"D:\repoB"),
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(sessions, procs, "deploy payment");
+
+            // Assert
+            Assert.Same(newer, resolved);
+        }
+
+        [Fact]
         public void TwoProcessesSameSession_CollapseToOneCandidate()
         {
             // Arrange — duplicate matches must not trip the "ambiguous" path
@@ -416,6 +515,218 @@ public class FocusedSessionResolverTests
 
             // Assert
             Assert.Same(session, resolved);
+        }
+    }
+
+    // ── MatchOpenSessions (restore snapshot) ───────────────────────
+
+    public class MatchOpenSessionsTests
+    {
+        [Fact]
+        public void ResumeId_ClaimsExactSession()
+        {
+            // Arrange
+            var sessionA = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\projA");
+            var sessionB = MakeSession("bbbbbbbb-2222-4222-8222-222222222222", cwd: @"D:\projB");
+            var sessions = new List<SessionTokenData> { sessionA, sessionB };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, @"node cli.js --resume bbbbbbbb-2222-4222-8222-222222222222", null),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert
+            var matched = Assert.Single(result.Matched);
+            Assert.Same(sessionB, matched);
+            Assert.Empty(result.Unmatched);
+        }
+
+        [Fact]
+        public void TwoProcessesInSameFolder_ClaimTwoDifferentSessions()
+        {
+            // Arrange — the "5 open, restored 3" bug: two terminals in one project
+            // must count as two sessions, not collapse into one.
+            var older = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj", minutesAgo: 300);
+            var newer = MakeSession("bbbbbbbb-2222-4222-8222-222222222222", cwd: @"D:\proj", minutesAgo: 1);
+            var unrelated = MakeSession("cccccccc-3333-4333-8333-333333333333", cwd: @"D:\other", minutesAgo: 5);
+            var sessions = new List<SessionTokenData> { older, newer, unrelated };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\proj"),
+                new(200, "node cli.js", @"D:\proj\"),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert — both sessions of that folder, nothing from the other one.
+            Assert.Equal(2, result.Matched.Count);
+            Assert.Contains(newer, result.Matched);
+            Assert.Contains(older, result.Matched);
+            Assert.Empty(result.Unmatched);
+        }
+
+        [Fact]
+        public void IdleOpenSession_StaysInSnapshot_EvenWhenNewerClosedSessionExists()
+        {
+            // Arrange — an open-but-idle session must beat a recently CLOSED one.
+            var openButIdle = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj", minutesAgo: 480);
+            var closedRecently = MakeSession("bbbbbbbb-2222-4222-8222-222222222222", cwd: @"D:\other", minutesAgo: 2);
+            var sessions = new List<SessionTokenData> { closedRecently, openButIdle };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\proj"),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert
+            var matched = Assert.Single(result.Matched);
+            Assert.Same(openButIdle, matched);
+        }
+
+        [Fact]
+        public void ResumeProcess_ClaimsFirst_SoCwdProcessTakesNextNewest()
+        {
+            // Arrange — the resume claim wins even when the plain-cwd process
+            // comes first in the list.
+            var newest = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj", minutesAgo: 1);
+            var second = MakeSession("bbbbbbbb-2222-4222-8222-222222222222", cwd: @"D:\proj", minutesAgo: 10);
+            var sessions = new List<SessionTokenData> { newest, second };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\proj"),
+                new(200, @"node cli.js --resume aaaaaaaa-1111-4111-8111-111111111111", @"D:\proj"),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert — no session claimed twice, both processes got one each.
+            Assert.Equal(2, result.Matched.Count);
+            Assert.Contains(newest, result.Matched);
+            Assert.Contains(second, result.Matched);
+        }
+
+        [Fact]
+        public void UnknownResumeId_DoesNotStealFolderNewestSession()
+        {
+            // Arrange — the process resumes a session the tracker doesn't know;
+            // it must NOT grab the folder's newest session, which belongs to
+            // the other terminal.
+            var tracked = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj", minutesAgo: 1);
+            var sessions = new List<SessionTokenData> { tracked };
+            var resumeProc = new FocusedClaudeProcess(
+                100, @"node cli.js --resume 99999999-9999-4999-8999-999999999999", @"D:\proj");
+            var cwdProc = new FocusedClaudeProcess(200, "node cli.js", @"D:\proj");
+            var procs = new List<FocusedClaudeProcess> { resumeProc, cwdProc };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert — cwd process keeps the tracked session, resume process is unmatched.
+            var matched = Assert.Single(result.Matched);
+            Assert.Same(tracked, matched);
+            var unmatched = Assert.Single(result.Unmatched);
+            Assert.Same(resumeProc, unmatched);
+        }
+
+        [Fact]
+        public void ForwardSlashCwd_MatchesBackslashSession()
+        {
+            // Arrange — git-bash style cwd vs. Windows-style session path.
+            var session = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj\sub");
+            var sessions = new List<SessionTokenData> { session };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", "D:/proj/sub"),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert
+            var matched = Assert.Single(result.Matched);
+            Assert.Same(session, matched);
+        }
+
+        [Fact]
+        public void UnknownFolder_ReturnsProcessAsUnmatched()
+        {
+            // Arrange
+            var session = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\projA");
+            var sessions = new List<SessionTokenData> { session };
+            var unknownProc = new FocusedClaudeProcess(100, "node cli.js", @"D:\somewhere-else");
+            var procs = new List<FocusedClaudeProcess> { unknownProc };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert
+            Assert.Empty(result.Matched);
+            var unmatched = Assert.Single(result.Unmatched);
+            Assert.Same(unknownProc, unmatched);
+        }
+
+        [Fact]
+        public void MoreProcessesThanSessionsInFolder_LeftoverGoesToUnmatched()
+        {
+            // Arrange — three terminals in a folder the watcher knows one session of.
+            var session = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj");
+            var sessions = new List<SessionTokenData> { session };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", @"D:\proj"),
+                new(200, "node cli.js", @"D:\proj"),
+                new(300, "node cli.js", @"D:\proj"),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert
+            var matched = Assert.Single(result.Matched);
+            Assert.Same(session, matched);
+            Assert.Equal(2, result.Unmatched.Count);
+        }
+
+        [Fact]
+        public void ProcessWithoutCwdOrResume_GoesToUnmatched()
+        {
+            // Arrange
+            var session = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\projA");
+            var sessions = new List<SessionTokenData> { session };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "node cli.js", null),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs);
+
+            // Assert
+            Assert.Empty(result.Matched);
+            Assert.Single(result.Unmatched);
+        }
+
+        [Fact]
+        public void NoProcesses_ReturnsEmptyResult()
+        {
+            // Arrange
+            var sessions = new List<SessionTokenData>
+            {
+                MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\projA"),
+            };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, []);
+
+            // Assert
+            Assert.Empty(result.Matched);
+            Assert.Empty(result.Unmatched);
         }
     }
 }

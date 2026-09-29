@@ -39,6 +39,61 @@
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="#D0D0E0"/>
         </Style>
+
+        <!-- Dark ComboBox (same look as the Session Browser filters) -->
+        <ControlTemplate x:Key="DarkComboToggle" TargetType="ToggleButton">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition Width="18"/>
+                </Grid.ColumnDefinitions>
+                <Border x:Name="Border" Grid.ColumnSpan="2" Background="#2A2A3A"
+                        BorderBrush="#40606080" BorderThickness="1" CornerRadius="2"/>
+                <Path Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Data="M 0 0 L 4 4 L 8 0 Z" Fill="#888899"/>
+            </Grid>
+        </ControlTemplate>
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="Background" Value="#2A2A3A"/>
+            <Setter Property="BorderBrush" Value="#40606080"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Template="{StaticResource DarkComboToggle}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False" ClickMode="Press"/>
+                            <ContentPresenter x:Name="ContentSite"
+                                              IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="6,3,20,3"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              TextBlock.Foreground="#E0E0E0"/>
+                            <Popup x:Name="Popup" Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True" Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Grid x:Name="DropDown" SnapsToDevicePixels="True"
+                                      MinWidth="{TemplateBinding ActualWidth}"
+                                      MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border x:Name="DropDownBorder" Background="#2A2A3A"
+                                            BorderBrush="#40606080" BorderThickness="1"/>
+                                    <ScrollViewer Margin="1" SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="18">
@@ -51,6 +106,9 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,10">
             <TextBlock Text="Reopen sessions" FontSize="17" FontWeight="Bold" Foreground="#A0B0FF"/>
             <TextBlock x:Name="txtSummary" FontSize="12" Foreground="#C0C0D0" Margin="0,4,0,0" TextWrapping="Wrap"/>
+            <ComboBox x:Name="cmbSnapshot" Style="{StaticResource DarkCombo}" Margin="0,8,0,0"
+                      Visibility="Collapsed" SelectionChanged="CmbSnapshot_SelectionChanged"
+                      ToolTip="Pick an earlier moment to see which sessions were open then"/>
         </StackPanel>
 
         <Border Grid.Row="1" Background="#252535" BorderBrush="#40606080" BorderThickness="1" CornerRadius="4">
@@ -63,7 +121,7 @@
                                     <TextBlock Text="{Binding Topic}" Foreground="#E0E0E0" FontSize="12.5" FontWeight="SemiBold"
                                                TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Foreground="#8890A8" FontSize="10.5" TextTrimming="CharacterEllipsis">
-                                        <Run Text="{Binding ProjectName, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding LastSeenDisplay, Mode=OneWay}"/>
+                                        <Run Text="{Binding ProjectName, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding LastSeenDisplay, Mode=OneWay}"/><Run Text="{Binding OpenNowSuffix, Mode=OneWay}" Foreground="#7BC77B"/>
                                     </TextBlock>
                                     <TextBlock Text="{Binding FolderPath}" Foreground="#666677" FontSize="10"
                                                TextTrimming="CharacterEllipsis"/>

@@ -25,10 +25,12 @@ public static class FocusedSessionResolver
     public static SessionTokenData? Resolve(
         IReadOnlyList<SessionTokenData> sessions
         , IReadOnlyList<FocusedClaudeProcess> claudeProcesses
-        , string? windowTitle)
+        , string? windowTitle
+        , Action<string>? trace = null)
     {
         if (sessions.Count == 0 || claudeProcesses.Count == 0)
         {
+            trace?.Invoke($"FocusResolve: nothing to match (sessions={sessions.Count}, processes={claudeProcesses.Count})");
             return null;
         }
 
@@ -36,6 +38,9 @@ public static class FocusedSessionResolver
         foreach (var proc in claudeProcesses)
         {
             var matched = MatchProcessToSession(sessions, proc);
+            trace?.Invoke(matched == null
+                ? $"FocusResolve: pid={proc.Pid} matched no tracked session"
+                : $"FocusResolve: pid={proc.Pid} -> session={matched.SessionId} ({matched.CustomName ?? matched.Slug ?? matched.ProjectName}, lastSeen={matched.LastSeen:HH:mm:ss})");
             if (matched != null && !candidates.Contains(matched))
             {
                 candidates.Add(matched);
@@ -54,10 +59,14 @@ public static class FocusedSessionResolver
         }
 
         // Several Claude sessions live under one window (e.g. Windows Terminal
-        // tabs sharing a single process). The window title shows the active
-        // tab's title, which usually contains the session's name — use it to
-        // pick the tab the user actually sees.
+        // tabs sharing a single process, or several WT windows which by default
+        // ALL live in one WindowsTerminal.exe). The window title shows the
+        // active tab's title, which usually contains the session's name — use
+        // it to pick the one the user actually sees.
         var byTitle = NarrowByTitle(candidates, windowTitle);
+        trace?.Invoke(byTitle.Count == candidates.Count
+            ? $"FocusResolve: title narrowed nothing ({candidates.Count} candidates stay) -> newest wins"
+            : $"FocusResolve: title narrowed {candidates.Count} -> {byTitle.Count}");
         var newest = byTitle
             .OrderByDescending(s => s.LastSeen)
             .First();
@@ -96,6 +105,98 @@ public static class FocusedSessionResolver
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Maps every running Claude process to the session it is showing, for
+    /// the "which sessions are open right now?" snapshot. A process with
+    /// <c>--resume</c> claims that exact session; the rest claim the newest
+    /// unclaimed sessions of their working directory — one per process, so
+    /// two terminals in the same folder count as two different sessions.
+    /// Processes that match nothing are returned too, so the caller can try
+    /// other lookups for them.
+    /// </summary>
+    public static OpenSessionMatchResult MatchOpenSessions(
+        IReadOnlyList<SessionTokenData> sessions
+        , IReadOnlyList<FocusedClaudeProcess> claudeProcesses)
+    {
+        var matched = new List<SessionTokenData>();
+        var claimedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var unmatched = new List<FocusedClaudeProcess>();
+        var byCwd = new Dictionary<string, List<FocusedClaudeProcess>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var proc in claudeProcesses)
+        {
+            var resumeId = ExtractResumeSessionId(proc.CommandLine);
+            if (resumeId != null)
+            {
+                var byId = sessions.FirstOrDefault(
+                    s => string.Equals(s.SessionId, resumeId, StringComparison.OrdinalIgnoreCase));
+                if (byId != null)
+                {
+                    // Two terminals resuming the same ID are one session — the
+                    // second claim is dropped on purpose, not sent to Unmatched.
+                    if (claimedIds.Add(byId.SessionId))
+                    {
+                        matched.Add(byId);
+                    }
+                }
+                else
+                {
+                    // The command line names an exact session we don't track
+                    // (e.g. resumed after a long idle). Never let it steal the
+                    // folder's newest session — hand it back with its ID intact
+                    // so the caller can build the reference from disk.
+                    unmatched.Add(proc);
+                }
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(proc.WorkingDirectory))
+            {
+                var key = NormalizePath(proc.WorkingDirectory);
+                if (!byCwd.TryGetValue(key, out var group))
+                {
+                    group = [];
+                    byCwd[key] = group;
+                }
+                group.Add(proc);
+            }
+            else
+            {
+                unmatched.Add(proc);
+            }
+        }
+
+        foreach (var kv in byCwd)
+        {
+            var group = kv.Value;
+            var candidates = sessions
+                .Where(s => !string.IsNullOrWhiteSpace(s.Cwd)
+                    && string.Equals(NormalizePath(s.Cwd!), kv.Key, StringComparison.OrdinalIgnoreCase)
+                    && !claimedIds.Contains(s.SessionId))
+                .OrderByDescending(s => s.LastSeen)
+                .Take(group.Count)
+                .ToList();
+
+            foreach (var candidate in candidates)
+            {
+                if (claimedIds.Add(candidate.SessionId))
+                {
+                    matched.Add(candidate);
+                }
+            }
+
+            // More processes in this folder than known sessions — hand the
+            // leftovers back so the caller can look them up elsewhere.
+            for (var i = candidates.Count; i < group.Count; i++)
+            {
+                unmatched.Add(group[i]);
+            }
+        }
+
+        var result = new OpenSessionMatchResult(matched, unmatched);
+        return result;
     }
 
     /// <summary>
@@ -175,11 +276,15 @@ public static class FocusedSessionResolver
     }
 
     /// <summary>
-    /// Keeps only the candidates whose name (custom name, slug or project name)
-    /// appears in the window title. When the title helps no one, all candidates
-    /// stay so the caller can still fall back to "newest of the matched".
+    /// Keeps only the candidates the window title points at. Two passes: an
+    /// exact substring match on the session's names first; when that helps no
+    /// one, a looser word-overlap score — the terminal title is often a task
+    /// description written by Claude ("Review and investigate the flaky test")
+    /// that contains no slug, but shares words with the session's first
+    /// message. When neither pass helps, all candidates stay so the caller
+    /// can still fall back to "newest of the matched".
     /// </summary>
-    private static List<SessionTokenData> NarrowByTitle(
+    internal static List<SessionTokenData> NarrowByTitle(
         List<SessionTokenData> candidates
         , string? windowTitle)
     {
@@ -191,12 +296,13 @@ public static class FocusedSessionResolver
         var narrowed = candidates
             .Where(s => TitleMentionsSession(windowTitle, s))
             .ToList();
-        if (narrowed.Count == 0)
+        if (narrowed.Count > 0)
         {
-            return candidates;
+            return narrowed;
         }
 
-        return narrowed;
+        var byOverlap = NarrowByWordOverlap(candidates, windowTitle);
+        return byOverlap;
     }
 
     private static bool TitleMentionsSession(string windowTitle, SessionTokenData session)
@@ -214,9 +320,59 @@ public static class FocusedSessionResolver
         return false;
     }
 
+    /// <summary>
+    /// Scores every candidate by how many distinct title words appear in its
+    /// names or first message, and keeps the candidates with the single best
+    /// positive score. A tie (including everyone at zero) keeps them all.
+    /// </summary>
+    private static List<SessionTokenData> NarrowByWordOverlap(
+        List<SessionTokenData> candidates
+        , string windowTitle)
+    {
+        var titleWords = SplitWords(windowTitle);
+        if (titleWords.Count == 0)
+        {
+            return candidates;
+        }
+
+        var scored = new List<(SessionTokenData Session, int Score)>();
+        foreach (var candidate in candidates)
+        {
+            var text = string.Join(
+                " "
+                , new[] { candidate.CustomName, candidate.Slug, candidate.ProjectName, candidate.FirstMessage }
+                    .Where(n => !string.IsNullOrWhiteSpace(n)));
+            var candidateWords = SplitWords(text);
+            var score = titleWords.Count(w => candidateWords.Contains(w));
+            scored.Add((candidate, score));
+        }
+
+        var best = scored.Max(x => x.Score);
+        if (best == 0)
+        {
+            return candidates;
+        }
+
+        var winners = scored
+            .Where(x => x.Score == best)
+            .Select(x => x.Session)
+            .ToList();
+        return winners;
+    }
+
+    /// <summary>Distinct lowercase words of 4+ letters/digits — short words
+    /// ("the", "and", "fix") match everything and only add noise.</summary>
+    private static HashSet<string> SplitWords(string text)
+    {
+        var words = Regex.Split(text.ToLowerInvariant(), @"[^\p{L}\p{Nd}]+")
+            .Where(w => w.Length >= 4)
+            .ToHashSet(StringComparer.Ordinal);
+        return words;
+    }
+
     private static string NormalizePath(string path)
     {
-        var trimmed = path.Trim().TrimEnd('\\', '/');
+        var trimmed = path.Trim().TrimEnd('\\', '/').Replace('/', '\\');
         return trimmed;
     }
 }

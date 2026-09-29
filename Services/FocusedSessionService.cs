@@ -24,23 +24,32 @@ public static class FocusedSessionService
     {
         try
         {
+            // Called only on the copy hotkey, so the diagnostic trace below is
+            // cheap. It exists to debug "copied from the wrong session" reports
+            // from the log alone — it records every decision the resolver makes.
             var hwnd = GetForegroundWindow();
             if (hwnd == IntPtr.Zero)
             {
+                AppLogger.Info("FocusResolve: no foreground window -> fallback");
                 return null;
             }
 
             GetWindowThreadProcessId(hwnd, out var foregroundPid);
             if (foregroundPid == 0)
             {
+                AppLogger.Info("FocusResolve: foreground window has no pid -> fallback");
                 return null;
             }
 
             var processes = SnapshotProcesses();
             if (processes.Count == 0)
             {
+                AppLogger.Info("FocusResolve: process snapshot empty -> fallback");
                 return null;
             }
+
+            var fgName = processes.TryGetValue((int)foregroundPid, out var fg) ? fg.Name : "?";
+            AppLogger.Info($"FocusResolve: foreground pid={foregroundPid} exe={fgName}");
 
             // Classic console windows are owned by conhost.exe, which is a
             // CHILD of the shell — the claude process is not its descendant.
@@ -49,6 +58,7 @@ public static class FocusedSessionService
                 && fgEntry.Name.Equals("conhost.exe", StringComparison.OrdinalIgnoreCase))
             {
                 foregroundPid = (uint)fgEntry.ParentPid;
+                AppLogger.Info($"FocusResolve: conhost step-up -> pid={foregroundPid}");
             }
 
             var parentOf = new Dictionary<int, int>(processes.Count);
@@ -57,44 +67,38 @@ public static class FocusedSessionService
                 parentOf[kv.Key] = kv.Value.ParentPid;
             }
 
+            // A claude launched with its own console window (Explorer,
+            // `start claude`) IS the foreground process after the conhost
+            // step-up — accept it as well as descendants. Collect ALL claude
+            // processes first so the trace also shows the ones rejected by
+            // the ancestry test — the most likely silent failure.
+            var fgPid = (int)foregroundPid;
+            var all = CollectClaudeProcesses(processes, pidFilter: null);
             var matched = new List<FocusedClaudeProcess>();
-            foreach (var kv in processes)
+            foreach (var proc in all)
             {
-                var name = kv.Value.Name;
-                var mayBeClaude = name.Equals("node.exe", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("claude.exe", StringComparison.OrdinalIgnoreCase);
-                if (!mayBeClaude)
+                var isUnderWindow = proc.Pid == fgPid
+                    || FocusedSessionResolver.IsAncestor(fgPid, proc.Pid, parentOf);
+                var resumeId = FocusedSessionResolver.ExtractResumeSessionId(proc.CommandLine) ?? "none";
+                AppLogger.Info($"FocusResolve: claude pid={proc.Pid} underWindow={isUnderWindow} resume={resumeId} cwd={proc.WorkingDirectory ?? "?"}");
+                if (isUnderWindow)
                 {
-                    continue;
+                    matched.Add(proc);
                 }
-
-                // A claude launched with its own console window (Explorer,
-                // `start claude`) IS the foreground process after the conhost
-                // step-up — accept it as well as descendants.
-                var isSelf = kv.Key == (int)foregroundPid;
-                if (!isSelf && !FocusedSessionResolver.IsAncestor((int)foregroundPid, kv.Key, parentOf))
-                {
-                    continue;
-                }
-
-                var cmdLine = ClaudeProcessService.GetCommandLine(kv.Key);
-                if (!FocusedSessionResolver.IsClaudeCliProcess(name, cmdLine))
-                {
-                    continue;
-                }
-
-                var cwd = ReadProcessCurrentDirectory(kv.Key);
-                var proc = new FocusedClaudeProcess(kv.Key, cmdLine ?? "", cwd);
-                matched.Add(proc);
             }
 
             if (matched.Count == 0)
             {
+                AppLogger.Info($"FocusResolve: none of {all.Count} claude process(es) under foreground window -> fallback");
                 return null;
             }
 
             var title = GetWindowTitle(hwnd);
-            var resolved = FocusedSessionResolver.Resolve(sessions, matched, title);
+            AppLogger.Info($"FocusResolve: window title=\"{title ?? "?"}\"");
+            var resolved = FocusedSessionResolver.Resolve(sessions, matched, title, AppLogger.Info);
+            AppLogger.Info(resolved == null
+                ? "FocusResolve: no session matched -> fallback"
+                : $"FocusResolve: RESULT session={resolved.SessionId} ({resolved.CustomName ?? resolved.Slug ?? resolved.ProjectName})");
             return resolved;
         }
         catch (Exception ex)
@@ -102,6 +106,65 @@ public static class FocusedSessionService
             AppLogger.Warn($"FocusedSessionService: resolve failed: {ex.Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// All Claude Code CLI processes currently running, regardless of which
+    /// window they live under. Used by session-restore snapshots to know
+    /// exactly which sessions are open. Best-effort: failure = empty list.
+    /// </summary>
+    public static List<FocusedClaudeProcess> EnumerateRunningClaudeProcesses()
+    {
+        try
+        {
+            var processes = SnapshotProcesses();
+            var found = CollectClaudeProcesses(processes, pidFilter: null);
+            return found;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"FocusedSessionService: enumerate failed: {ex.Message}");
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Walks the process snapshot and keeps the Claude CLI processes
+    /// (optionally only those accepted by <paramref name="pidFilter"/>),
+    /// each with its command line and working directory.
+    /// </summary>
+    private static List<FocusedClaudeProcess> CollectClaudeProcesses(
+        Dictionary<int, ProcessEntry> processes
+        , Func<int, bool>? pidFilter)
+    {
+        var matched = new List<FocusedClaudeProcess>();
+        foreach (var kv in processes)
+        {
+            var name = kv.Value.Name;
+            var mayBeClaude = name.Equals("node.exe", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("claude.exe", StringComparison.OrdinalIgnoreCase);
+            if (!mayBeClaude)
+            {
+                continue;
+            }
+
+            if (pidFilter != null && !pidFilter(kv.Key))
+            {
+                continue;
+            }
+
+            var cmdLine = ClaudeProcessService.GetCommandLine(kv.Key);
+            if (!FocusedSessionResolver.IsClaudeCliProcess(name, cmdLine))
+            {
+                continue;
+            }
+
+            var cwd = ReadProcessCurrentDirectory(kv.Key);
+            var proc = new FocusedClaudeProcess(kv.Key, cmdLine ?? "", cwd);
+            matched.Add(proc);
+        }
+
+        return matched;
     }
 
     // ---- process snapshot (pid -> parent pid + exe name) ----

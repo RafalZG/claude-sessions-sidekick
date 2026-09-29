@@ -338,24 +338,75 @@ public partial class MainWindow : Window
         }
     }
 
-    // Best guess at which sessions are currently open. The count of running Claude
-    // Code processes tells us HOW MANY terminals are open; we show that many of the
-    // most-recently-active sessions. This catches open-but-idle sessions that a pure
-    // "active in the last 20 min" test would miss. If no processes are detectable,
-    // fall back to the activity heuristic.
+    // Which sessions are currently open. Primary path: enumerate the running
+    // Claude CLI processes and map each one to its session (exact --resume ID, or
+    // the process's working directory) — an open-but-idle-for-hours session stays
+    // in the snapshot this way. Only when that yields nothing do we fall back to
+    // the old guess: the N most recently active sessions.
     private List<OpenSessionRef> GetCurrentOpenSessions()
     {
-        var recent = _sessionWatcher.GetRecentSessions()
+        var recent = _sessionWatcher.GetRecentSessions(hours: 168)
             .Where(s => !string.IsNullOrEmpty(s.SessionId) && !string.IsNullOrEmpty(s.FilePath))
             .OrderByDescending(s => s.LastSeen)
             .ToList();
 
+        var processes = FocusedSessionService.EnumerateRunningClaudeProcesses();
+        if (processes.Count > 0)
+        {
+            var refs = MapProcessesToOpenSessions(recent, processes);
+            if (refs.Count > 0)
+            {
+                return refs;
+            }
+        }
+
+        // Old guess, only when process enumeration told us nothing. Restricted
+        // to sessions active in the last few hours — with no process evidence,
+        // a week-old session is almost certainly closed.
+        var recentlyActive = recent
+            .Where(s => s.IsActive(TimeSpan.FromHours(6)))
+            .ToList();
         var running = ClaudeProcessService.GetRunningClaudeCodeCount();
         IEnumerable<SessionTokenData> chosen = running > 0
-            ? recent.Take(running)
-            : recent.Where(s => s.IsActive(SessionOpenThreshold));
+            ? recentlyActive.Take(running)
+            : recentlyActive.Where(s => s.IsActive(SessionOpenThreshold));
 
         return chosen.Select(SessionRestoreService.ToRef).ToList();
+    }
+
+    private static List<OpenSessionRef> MapProcessesToOpenSessions(
+        List<SessionTokenData> recent
+        , List<FocusedClaudeProcess> processes)
+    {
+        var match = FocusedSessionResolver.MatchOpenSessions(recent, processes);
+        var refs = match.Matched.Select(SessionRestoreService.ToRef).ToList();
+        var claimedIds = refs
+            .Select(r => r.SessionId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Processes the watcher knows nothing about (idle since before Sidekick
+        // started) — their project folders on disk still name the sessions.
+        foreach (var proc in match.Unmatched)
+        {
+            if (string.IsNullOrWhiteSpace(proc.WorkingDirectory))
+            {
+                continue;
+            }
+
+            // The command line's --resume ID is authoritative when present;
+            // otherwise take the newest session file nobody claimed yet.
+            var resumeId = FocusedSessionResolver.ExtractResumeSessionId(proc.CommandLine);
+            var fromDisk = resumeId != null
+                ? SessionRestoreService.RefFromSessionId(proc.WorkingDirectory, resumeId)
+                : SessionRestoreService.RefFromNewestSessionFile(proc.WorkingDirectory, claimedIds);
+
+            if (fromDisk != null && claimedIds.Add(fromDisk.SessionId))
+            {
+                refs.Add(fromDisk);
+            }
+        }
+
+        return refs;
     }
 
     private void OfferSessionRestoreOnStartup()
@@ -389,15 +440,35 @@ public partial class MainWindow : Window
         }
     }
 
-    // Opens the restore picker. When invoked from the tray (no explicit list) it shows
-    // the currently-open sessions; the startup offer passes the pre-boot snapshot.
+    // Opens the restore picker. When invoked from the tray or the Session Browser
+    // (no explicit list) it shows the currently-open sessions; the startup offer
+    // passes the pre-boot snapshot.
     private void ShowSessionRestore(IReadOnlyList<OpenSessionRef>? sessions = null, bool afterRestart = false)
     {
         try
         {
-            sessions ??= GetCurrentOpenSessions();
+            var openNow = GetCurrentOpenSessions();
+            var openNowIds = openNow
+                .Select(s => s.SessionId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            if (sessions.Count == 0)
+            if (sessions == null)
+            {
+                // Opened by hand shortly after a reboot (the balloon was missed and
+                // no fresh snapshot has been written yet) — show the pre-restart set
+                // first, exactly as clicking the balloon would.
+                var snapshot = SessionRestoreService.Load();
+                if (SessionRestoreService.ShouldOfferRestore(snapshot, SessionRestoreService.BootTimeUtc(), DateTimeOffset.UtcNow))
+                {
+                    sessions = snapshot!.Sessions;
+                    afterRestart = true;
+                }
+            }
+
+            sessions ??= openNow;
+            var history = SessionRestoreService.LoadHistory();
+
+            if (sessions.Count == 0 && history.Count == 0)
             {
                 System.Windows.MessageBox.Show(
                     "No open Claude Code sessions to reopen.",
@@ -407,7 +478,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var window = new SessionRestoreWindow(sessions, RelaunchSessions, afterRestart);
+            var window = new SessionRestoreWindow(sessions, RelaunchSessions, afterRestart, history, openNowIds);
             window.Show();
             window.Activate();
         }
@@ -1043,7 +1114,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        _sessionBrowserWindow = new SessionBrowserWindow(_appSettings.CompactAggressiveness);
+        _sessionBrowserWindow = new SessionBrowserWindow(
+            _appSettings.CompactAggressiveness
+            , openSessionRestore: () => ShowSessionRestore());
         _sessionBrowserWindow.Closed += (_, _) => _sessionBrowserWindow = null;
         _sessionBrowserWindow.Show();
         BringToForeground(_sessionBrowserWindow);

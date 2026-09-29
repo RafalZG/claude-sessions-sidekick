@@ -30,6 +30,15 @@ public static class ClaudeLauncherService
             folder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         }
 
+        // Session IDs are always GUIDs. The ID can come from an editable JSON
+        // file (restore snapshot/journal), so reject anything else before it
+        // reaches a shell command line.
+        if (!Guid.TryParse(sessionId, out _))
+        {
+            AppLogger.Warn("LaunchResume: rejecting session id that is not a GUID");
+            return;
+        }
+
         AppLogger.Info($"LaunchResume: sessionId={sessionId}, folder={folder}");
         var args = $"claude --resume {sessionId}{BuildModelArg(entry.ModelOverride)}{BuildEffortArg(effortOverride)}";
         LaunchInShell(folder, args, entry.ShellOverride);
@@ -207,10 +216,13 @@ public static class ClaudeLauncherService
         }
         else
         {
+            // A single quote is legal in a folder name and would break out of the
+            // quoted Set-Location argument — double it, PowerShell's escape.
+            var safeDir = workingDir.Replace("'", "''");
             Process.Start(new ProcessStartInfo
             {
                 FileName = pwsh,
-                Arguments = $"-NoExit -Command \"Set-Location '{workingDir}'; & {claudeArgs}\"",
+                Arguments = $"-NoExit -Command \"Set-Location '{safeDir}'; & {claudeArgs}\"",
                 UseShellExecute = true
             });
         }
