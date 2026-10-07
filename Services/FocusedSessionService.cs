@@ -95,7 +95,31 @@ public static class FocusedSessionService
 
             var title = GetWindowTitle(hwnd);
             AppLogger.Info($"FocusResolve: window title=\"{title ?? "?"}\"");
-            var resolved = FocusedSessionResolver.Resolve(sessions, matched, title, AppLogger.Info);
+
+            // A process whose session the watcher doesn't track (idle since
+            // yesterday, say) would silently lose to any tracked session under
+            // the same window. Pull its session straight from disk so it
+            // competes on equal terms — including by window title.
+            var candidates = sessions;
+            List<SessionTokenData>? augmented = null;
+            foreach (var proc in matched)
+            {
+                if (FocusedSessionResolver.HasTrackedSession(candidates, proc))
+                {
+                    continue;
+                }
+
+                var fromDisk = DiskSessionLookup.ForProcess(proc);
+                if (fromDisk != null)
+                {
+                    AppLogger.Info($"FocusResolve: disk lookup pid={proc.Pid} -> session={fromDisk.SessionId} (slug={fromDisk.Slug ?? "?"})");
+                    augmented ??= new List<SessionTokenData>(sessions);
+                    augmented.Add(fromDisk);
+                    candidates = augmented;
+                }
+            }
+
+            var resolved = FocusedSessionResolver.Resolve(candidates, matched, title, AppLogger.Info);
             AppLogger.Info(resolved == null
                 ? "FocusResolve: no session matched -> fallback"
                 : $"FocusResolve: RESULT session={resolved.SessionId} ({resolved.CustomName ?? resolved.Slug ?? resolved.ProjectName})");

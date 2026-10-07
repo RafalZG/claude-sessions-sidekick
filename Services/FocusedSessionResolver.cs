@@ -200,6 +200,28 @@ public static class FocusedSessionResolver
     }
 
     /// <summary>
+    /// Answers whether a process's session is among the tracked candidates.
+    /// A process launched with <c>--resume</c> counts as tracked ONLY when
+    /// that exact ID is present — the working-directory fallback must not
+    /// hide the mismatch, or a disk lookup for the real session would be
+    /// skipped whenever the same folder holds some other session.
+    /// </summary>
+    public static bool HasTrackedSession(
+        IReadOnlyList<SessionTokenData> sessions
+        , FocusedClaudeProcess proc)
+    {
+        var resumeId = ExtractResumeSessionId(proc.CommandLine);
+        if (resumeId != null)
+        {
+            return sessions.Any(
+                s => string.Equals(s.SessionId, resumeId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var matched = MatchProcessToSession(sessions, proc);
+        return matched != null;
+    }
+
+    /// <summary>
     /// Pulls the session ID out of a <c>claude --resume {id}</c> command line,
     /// or null when the process was started without --resume.
     /// </summary>
@@ -238,11 +260,41 @@ public static class FocusedSessionResolver
 
         if (exeName.Equals("claude.exe", StringComparison.OrdinalIgnoreCase))
         {
-            return commandLine == null
-                || commandLine.IndexOf("--type=", StringComparison.OrdinalIgnoreCase) < 0;
+            if (commandLine == null)
+            {
+                return true;
+            }
+
+            // The desktop app installs under ...\AnthropicClaude\app-x.y.z\ and
+            // its MAIN process carries no --type= — the executable path is what
+            // gives it away (seen in MonitorMike's log inflating the session
+            // count). Only the first token is checked, so an ARGUMENT that
+            // happens to mention the folder can't exclude a real CLI.
+            if (commandLine.IndexOf("--type=", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return false;
+            }
+
+            var exePath = FirstCommandLineToken(commandLine);
+            return exePath.IndexOf("AnthropicClaude", StringComparison.OrdinalIgnoreCase) < 0;
         }
 
         return false;
+    }
+
+    /// <summary>The executable part of a command line: the quoted first token,
+    /// or everything up to the first space when unquoted.</summary>
+    private static string FirstCommandLineToken(string commandLine)
+    {
+        var trimmed = commandLine.TrimStart();
+        if (trimmed.StartsWith('"'))
+        {
+            var closing = trimmed.IndexOf('"', 1);
+            return closing > 0 ? trimmed[1..closing] : trimmed;
+        }
+
+        var space = trimmed.IndexOf(' ');
+        return space > 0 ? trimmed[..space] : trimmed;
     }
 
     /// <summary>

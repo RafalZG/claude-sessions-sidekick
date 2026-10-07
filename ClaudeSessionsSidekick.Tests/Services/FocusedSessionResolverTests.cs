@@ -81,6 +81,11 @@ public class FocusedSessionResolverTests
         // Claude DESKTOP app helper processes carry --type=
         [InlineData("claude.exe", @"""C:\AnthropicClaude\claude.exe"" --type=renderer --field-trial…", false)]
         [InlineData("claude.exe", @"""C:\AnthropicClaude\claude.exe"" --type=gpu-process", false)]
+        // ...and the desktop app's MAIN process has no --type= — the install
+        // path gives it away (MonitorMike's log, pid 22752)
+        [InlineData("claude.exe", @"""C:\Users\mike\AppData\Local\AnthropicClaude\app-2.26454.0\claude.exe""", false)]
+        // but a real CLI merely MENTIONING that folder in an argument stays in
+        [InlineData("claude.exe", @"""C:\WinGet\Links\claude.exe"" --resume abc --add-dir C:\notes\AnthropicClaude", true)]
         // plain node without the CLI script is an MCP server or anything else
         [InlineData("node.exe", @"node C:\XGGMCPServers\SomeMCP\dist\index.js", false)]
         [InlineData("node.exe", null, false)]
@@ -499,6 +504,34 @@ public class FocusedSessionResolverTests
         }
 
         [Fact]
+        public void MikesCase_IdleDiskSessionBeatsTrackedOne_WhenTitleShowsItsSlug()
+        {
+            // Arrange — straight from MonitorMike's app.log (2026-10-07): two WT
+            // windows in one WindowsTerminal.exe. Dev1's session is idle since
+            // yesterday, known only from disk (synthetic entry with the slug
+            // read from the file); dev2 is tracked and much newer. Focus is on
+            // the Dev1 window, whose title is Dev1's slug.
+            var dev1FromDisk = MakeSession("1f6ceb3b-a7d6-4e12-b031-303fff81a83b",
+                cwd: @"C:\src\Dev1", slug: "add-sequence-numbers-webclient-print",
+                projectName: "Dev1", minutesAgo: 1380);
+            var dev2Tracked = MakeSession("64df81a2-b8b7-4759-bf11-4f253cec8dfe",
+                cwd: @"C:\src\dev2", projectName: "dev2", minutesAgo: 150);
+            var sessions = new List<SessionTokenData> { dev2Tracked, dev1FromDisk };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(13632, @"claude --resume 1f6ceb3b-a7d6-4e12-b031-303fff81a83b", @"C:\src\Dev1\"),
+                new(30588, "claude", @"C:\src\dev2\"),
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(
+                sessions, procs, "✳ add-sequence-numbers-webclient-print");
+
+            // Assert
+            Assert.Same(dev1FromDisk, resolved);
+        }
+
+        [Fact]
         public void TwoProcessesSameSession_CollapseToOneCandidate()
         {
             // Arrange — duplicate matches must not trip the "ambiguous" path
@@ -515,6 +548,60 @@ public class FocusedSessionResolverTests
 
             // Assert
             Assert.Same(session, resolved);
+        }
+    }
+
+    // ── HasTrackedSession (disk-lookup gate) ───────────────────────
+
+    public class HasTrackedSessionTests
+    {
+        [Fact]
+        public void ResumeIdNotTracked_SameFolderHasOtherSession_StillFalse()
+        {
+            // Arrange — the same-folder variant of MonitorMike's bug: without
+            // the exact-ID rule, the cwd fallback would claim the OTHER
+            // terminal's session and the disk lookup would never run.
+            var otherInFolder = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj");
+            var sessions = new List<SessionTokenData> { otherInFolder };
+            var proc = new FocusedClaudeProcess(
+                100, @"claude --resume 99999999-9999-4999-8999-999999999999", @"D:\proj");
+
+            // Act
+            var tracked = FocusedSessionResolver.HasTrackedSession(sessions, proc);
+
+            // Assert
+            Assert.False(tracked);
+        }
+
+        [Fact]
+        public void ResumeIdTracked_True()
+        {
+            // Arrange
+            var session = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj");
+            var sessions = new List<SessionTokenData> { session };
+            var proc = new FocusedClaudeProcess(
+                100, @"claude --resume aaaaaaaa-1111-4111-8111-111111111111", @"D:\proj");
+
+            // Act
+            var tracked = FocusedSessionResolver.HasTrackedSession(sessions, proc);
+
+            // Assert
+            Assert.True(tracked);
+        }
+
+        [Fact]
+        public void NoResumeId_CwdMatch_True()
+        {
+            // Arrange
+            var session = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj");
+            var sessions = new List<SessionTokenData> { session };
+            var proc = new FocusedClaudeProcess(100, "claude", @"D:\proj");
+
+            // Act
+            var tracked = FocusedSessionResolver.HasTrackedSession(sessions, proc);
+
+            // Assert
+            Assert.True(tracked);
         }
     }
 

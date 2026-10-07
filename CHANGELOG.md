@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10] — 2026-10-07
+
+### Fixed
+- **Copy Last Reply: a session idle for more than a few hours no longer loses
+  to the other window's session** — the actual root cause behind
+  [#2](https://github.com/RafalZG/claude-sessions-sidekick/issues/2)/[#3](https://github.com/RafalZG/claude-sessions-sidekick/issues/3)
+  (confirmed from a reporter's diagnostic log, thanks @MonitorMike!). The
+  resolver only considered sessions active in the last 6 hours, so a window
+  showing yesterday's session had no candidate at all and the OTHER window's
+  session always won. The window is now a week, and a running Claude process
+  whose session the tracker has never seen is identified straight from its
+  file on disk (via its `--resume` ID or project folder), including the
+  session name for window-title matching.
+- **Session count no longer includes the Claude desktop app's main process**
+  (its helper processes were already excluded).
+
 ## [1.0.9] — 2026-09-30
 
 ### Fixed

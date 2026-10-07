@@ -627,7 +627,11 @@ public partial class MainWindow : Window
     {
         try
         {
-            var sessions = _sessionWatcher.GetRecentSessions()
+            // A whole week back: the focused window may show a session idle
+            // since yesterday, and the default 6-hour view would hide it from
+            // the resolver (MonitorMike's bug — the only candidate left was
+            // the OTHER window's session, so it always won).
+            var sessions = _sessionWatcher.GetRecentSessions(hours: 168)
                 .Where(s => !string.IsNullOrEmpty(s.FilePath))
                 .ToList();
 
