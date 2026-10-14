@@ -492,7 +492,7 @@
                 <DataGridTemplateColumn Width="*" SortMemberPath="Topic"
                                         svc:DataGridColumnHelper.Key="topic">
                     <DataGridTemplateColumn.Header>
-                        <TextBlock Text="Topic" ToolTip="First message in the session - what was the conversation about"/>
+                        <TextBlock Text="Topic" ToolTip="What the session is about - its custom or live name,&#x0a;or the latest meaningful prompt when it has no name"/>
                     </DataGridTemplateColumn.Header>
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

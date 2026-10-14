@@ -551,6 +551,84 @@ public class FocusedSessionResolverTests
         }
     }
 
+    // ── pid-file exact IDs ─────────────────────────────────────────
+
+    public class PidFileExactIdTests
+    {
+        [Fact]
+        public void ExactIdFromPidFile_BeatsNewerSessionInSameFolder()
+        {
+            // Arrange — the pid file says the process shows the OLDER session,
+            // even though the folder has a newer one the cwd heuristic would pick.
+            var older = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj", minutesAgo: 600);
+            var newer = MakeSession("bbbbbbbb-2222-4222-8222-222222222222", cwd: @"D:\proj", minutesAgo: 1);
+            var sessions = new List<SessionTokenData> { older, newer };
+            var procs = new List<FocusedClaudeProcess> { new(100, "claude", @"D:\proj") };
+            var byPid = new Dictionary<int, string> { [100] = "aaaaaaaa-1111-4111-8111-111111111111" };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(sessions, procs, null, null, byPid);
+
+            // Assert
+            Assert.Same(older, resolved);
+        }
+
+        [Fact]
+        public void ExactIdMiss_DoesNotFallThroughToCwd()
+        {
+            // Arrange — the pid file names a session we don't track; the folder
+            // heuristic must NOT claim a different session for that process.
+            var inFolder = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj");
+            var sessions = new List<SessionTokenData> { inFolder };
+            var proc = new FocusedClaudeProcess(100, "claude", @"D:\proj");
+
+            // Act
+            var matched = FocusedSessionResolver.MatchProcessToSession(
+                sessions, proc, exactSessionId: "99999999-9999-4999-8999-999999999999");
+
+            // Assert
+            Assert.Null(matched);
+        }
+
+        [Fact]
+        public void MatchOpenSessions_PidFileIdWinsOverResumeArgument()
+        {
+            // Arrange — the --resume argument is stale (points at session A),
+            // but the pid file says the live session is B (e.g. after /clear).
+            var argued = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj", minutesAgo: 60);
+            var live = MakeSession("bbbbbbbb-2222-4222-8222-222222222222", cwd: @"D:\proj", minutesAgo: 1);
+            var sessions = new List<SessionTokenData> { argued, live };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, @"claude --resume aaaaaaaa-1111-4111-8111-111111111111", @"D:\proj"),
+            };
+            var byPid = new Dictionary<int, string> { [100] = "bbbbbbbb-2222-4222-8222-222222222222" };
+
+            // Act
+            var result = FocusedSessionResolver.MatchOpenSessions(sessions, procs, byPid);
+
+            // Assert
+            var matched = Assert.Single(result.Matched);
+            Assert.Same(live, matched);
+        }
+
+        [Fact]
+        public void HasTrackedSession_ExactIdMiss_False_EvenWithFolderMatch()
+        {
+            // Arrange
+            var inFolder = MakeSession("aaaaaaaa-1111-4111-8111-111111111111", cwd: @"D:\proj");
+            var sessions = new List<SessionTokenData> { inFolder };
+            var proc = new FocusedClaudeProcess(100, "claude", @"D:\proj");
+
+            // Act
+            var tracked = FocusedSessionResolver.HasTrackedSession(
+                sessions, proc, exactSessionId: "99999999-9999-4999-8999-999999999999");
+
+            // Assert
+            Assert.False(tracked);
+        }
+    }
+
     // ── HasTrackedSession (disk-lookup gate) ───────────────────────
 
     public class HasTrackedSessionTests

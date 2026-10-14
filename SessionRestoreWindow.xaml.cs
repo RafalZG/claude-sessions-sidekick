@@ -31,6 +31,16 @@ public partial class SessionRestoreWindow : Window
         _openNowIds = openNowIds ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         lstSessions.ItemsSource = _rows;
 
+        // Opened right after a reboot the window must not drown in the flood
+        // of restoring apps — keep it on top until the user reacts. It must
+        // NOT grab the keyboard though: stealing focus at login could swallow
+        // an Enter meant for another app and silently relaunch everything.
+        if (afterRestart)
+        {
+            Topmost = true;
+            ShowActivated = false;
+        }
+
         var choices = BuildChoices(sessions, afterRestart, history);
         cmbSnapshot.ItemsSource = choices;
         cmbSnapshot.Visibility = choices.Count > 1 ? Visibility.Visible : Visibility.Collapsed;

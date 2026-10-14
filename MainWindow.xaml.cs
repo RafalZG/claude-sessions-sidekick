@@ -353,7 +353,9 @@ public partial class MainWindow : Window
         var processes = FocusedSessionService.EnumerateRunningClaudeProcesses();
         if (processes.Count > 0)
         {
-            var refs = MapProcessesToOpenSessions(recent, processes);
+            var pidInfos = ClaudeSessionPidFileService.ReadForPids(
+                processes.Select(p => p.Pid).ToList());
+            var refs = MapProcessesToOpenSessions(recent, processes, pidInfos);
             if (refs.Count > 0)
             {
                 return refs;
@@ -376,29 +378,40 @@ public partial class MainWindow : Window
 
     private static List<OpenSessionRef> MapProcessesToOpenSessions(
         List<SessionTokenData> recent
-        , List<FocusedClaudeProcess> processes)
+        , List<FocusedClaudeProcess> processes
+        , IReadOnlyDictionary<int, ClaudeSessionPidInfo> pidInfos)
     {
-        var match = FocusedSessionResolver.MatchOpenSessions(recent, processes);
+        Dictionary<int, string>? sessionIdByPid = null;
+        if (pidInfos.Count > 0)
+        {
+            sessionIdByPid = pidInfos.ToDictionary(kv => kv.Key, kv => kv.Value.SessionId);
+        }
+
+        var match = FocusedSessionResolver.MatchOpenSessions(recent, processes, sessionIdByPid);
         var refs = match.Matched.Select(SessionRestoreService.ToRef).ToList();
         var claimedIds = refs
             .Select(r => r.SessionId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Processes the watcher knows nothing about (idle since before Sidekick
-        // started) — their project folders on disk still name the sessions.
+        // started) — their pid file or project folder on disk still names the
+        // session.
         foreach (var proc in match.Unmatched)
         {
-            if (string.IsNullOrWhiteSpace(proc.WorkingDirectory))
+            // Exact ID: the pid file first, the --resume argument second;
+            // otherwise take the newest session file nobody claimed yet.
+            var exactId = sessionIdByPid?.GetValueOrDefault(proc.Pid)
+                ?? FocusedSessionResolver.ExtractResumeSessionId(proc.CommandLine);
+            var cwd = (pidInfos.TryGetValue(proc.Pid, out var info) ? info.Cwd : null)
+                ?? proc.WorkingDirectory;
+            if (string.IsNullOrWhiteSpace(cwd))
             {
                 continue;
             }
 
-            // The command line's --resume ID is authoritative when present;
-            // otherwise take the newest session file nobody claimed yet.
-            var resumeId = FocusedSessionResolver.ExtractResumeSessionId(proc.CommandLine);
-            var fromDisk = resumeId != null
-                ? SessionRestoreService.RefFromSessionId(proc.WorkingDirectory, resumeId)
-                : SessionRestoreService.RefFromNewestSessionFile(proc.WorkingDirectory, claimedIds);
+            var fromDisk = exactId != null
+                ? SessionRestoreService.RefFromSessionId(cwd, exactId)
+                : SessionRestoreService.RefFromNewestSessionFile(cwd, claimedIds);
 
             if (fromDisk != null && claimedIds.Add(fromDisk.SessionId))
             {
@@ -425,14 +438,16 @@ public partial class MainWindow : Window
             }
 
             var sessions = snapshot!.Sessions;
-            _pendingBalloonAction = () => ShowSessionRestore(sessions, afterRestart: true);
-            _trayIcon?.ShowBalloonTip(
-                10_000,
-                "Reopen your sessions?",
-                sessions.Count == 1
-                    ? "1 Claude Code session was open before the restart. Click to reopen it."
-                    : $"{sessions.Count} Claude Code sessions were open before the restart. Click to reopen them.",
-                System.Windows.Forms.ToolTipIcon.Info);
+
+            // Not a balloon: at login it disappears in seconds, easily before
+            // the user even sees the desktop (reported after a power cut). The
+            // restore window itself stays open until the user reacts. The
+            // snapshot was read above, BEFORE the watcher can overwrite it —
+            // only the window (process scan, disk reads) is deferred so the
+            // tray starts without waiting on a login-contended disk.
+            Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.Background
+                , () => ShowSessionRestore(sessions, afterRestart: true));
         }
         catch (Exception ex)
         {
@@ -480,7 +495,12 @@ public partial class MainWindow : Window
 
             var window = new SessionRestoreWindow(sessions, RelaunchSessions, afterRestart, history, openNowIds);
             window.Show();
-            window.Activate();
+            // After a restart the window is Topmost and deliberately NOT
+            // activated (see the constructor) — don't steal focus at login.
+            if (!afterRestart)
+            {
+                window.Activate();
+            }
         }
         catch (Exception ex)
         {

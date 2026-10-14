@@ -213,6 +213,36 @@ public class SessionTokenDataTests
         }
 
         [Fact]
+        public void Topic_PrefersSlugOverLastMeaningfulPrompt()
+        {
+            // Arrange
+            var session = new SessionTokenData
+            {
+                Slug = "keen-mixing-origami",
+                LastMeaningfulPrompt = "now add the KSeF export",
+                SessionId = "abc12345-6789-0000-0000-000000000000"
+            };
+
+            // Act & Assert
+            Assert.Equal("keen-mixing-origami", session.Topic);
+        }
+
+        [Fact]
+        public void Topic_PrefersLastMeaningfulPromptOverFirstMessage()
+        {
+            // Arrange — the label follows what the session is about NOW.
+            var session = new SessionTokenData
+            {
+                FirstMessage = "Fix the bug in...",
+                LastMeaningfulPrompt = "now add the KSeF export",
+                SessionId = "abc12345-6789-0000-0000-000000000000"
+            };
+
+            // Act & Assert
+            Assert.Equal("now add the KSeF export", session.Topic);
+        }
+
+        [Fact]
         public void Topic_FallsBackToSlug_WhenOnlySlugSet()
         {
             // Arrange

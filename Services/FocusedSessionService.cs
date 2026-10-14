@@ -96,6 +96,22 @@ public static class FocusedSessionService
             var title = GetWindowTitle(hwnd);
             AppLogger.Info($"FocusResolve: window title=\"{title ?? "?"}\"");
 
+            // Claude Code's own pid files say exactly which session each live
+            // process shows — the strongest signal there is. Heuristics below
+            // stay as the fallback for CLI versions without those files.
+            var pidInfos = ClaudeSessionPidFileService.ReadForPids(
+                matched.Select(m => m.Pid).ToList());
+            Dictionary<int, string>? sessionIdByPid = null;
+            if (pidInfos.Count > 0)
+            {
+                sessionIdByPid = new Dictionary<int, string>(pidInfos.Count);
+                foreach (var kv in pidInfos)
+                {
+                    sessionIdByPid[kv.Key] = kv.Value.SessionId;
+                    AppLogger.Info($"FocusResolve: pidfile pid={kv.Key} -> session={kv.Value.SessionId} name=\"{kv.Value.Name ?? "?"}\"");
+                }
+            }
+
             // A process whose session the watcher doesn't track (idle since
             // yesterday, say) would silently lose to any tracked session under
             // the same window. Pull its session straight from disk so it
@@ -104,22 +120,42 @@ public static class FocusedSessionService
             List<SessionTokenData>? augmented = null;
             foreach (var proc in matched)
             {
-                if (FocusedSessionResolver.HasTrackedSession(candidates, proc))
+                var exactId = sessionIdByPid?.GetValueOrDefault(proc.Pid);
+                if (FocusedSessionResolver.HasTrackedSession(candidates, proc, exactId))
                 {
                     continue;
                 }
 
-                var fromDisk = DiskSessionLookup.ForProcess(proc);
+                SessionTokenData? fromDisk = null;
+                if (exactId != null && pidInfos.TryGetValue(proc.Pid, out var info))
+                {
+                    fromDisk = DiskSessionLookup.ForPidInfo(info);
+                    if (fromDisk == null)
+                    {
+                        // The pid file points at a session file that isn't on
+                        // disk (yet). With the exact ID still in the map the
+                        // resolver would refuse every other candidate for this
+                        // process — drop it and let the heuristics take over.
+                        AppLogger.Info($"FocusResolve: pidfile pid={proc.Pid} has no session file on disk -> heuristics");
+                        sessionIdByPid!.Remove(proc.Pid);
+                        if (FocusedSessionResolver.HasTrackedSession(candidates, proc))
+                        {
+                            continue;
+                        }
+                    }
+                }
+                fromDisk ??= DiskSessionLookup.ForProcess(proc);
+
                 if (fromDisk != null)
                 {
-                    AppLogger.Info($"FocusResolve: disk lookup pid={proc.Pid} -> session={fromDisk.SessionId} (slug={fromDisk.Slug ?? "?"})");
+                    AppLogger.Info($"FocusResolve: disk lookup pid={proc.Pid} -> session={fromDisk.SessionId} (slug={fromDisk.Slug ?? "?"}, name={fromDisk.CustomName ?? "?"})");
                     augmented ??= new List<SessionTokenData>(sessions);
                     augmented.Add(fromDisk);
                     candidates = augmented;
                 }
             }
 
-            var resolved = FocusedSessionResolver.Resolve(candidates, matched, title, AppLogger.Info);
+            var resolved = FocusedSessionResolver.Resolve(candidates, matched, title, AppLogger.Info, sessionIdByPid);
             AppLogger.Info(resolved == null
                 ? "FocusResolve: no session matched -> fallback"
                 : $"FocusResolve: RESULT session={resolved.SessionId} ({resolved.CustomName ?? resolved.Slug ?? resolved.ProjectName})");

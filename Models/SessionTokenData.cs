@@ -69,11 +69,19 @@ public class SessionTokenData
     public string? FirstMessage { get; set; }
 
     /// <summary>
+    /// The newest user prompt long enough to say something ("ok"/"tak" don't
+    /// count) — so an unnamed session's label follows what the user is doing
+    /// NOW, not what they asked three days ago.
+    /// </summary>
+    public string? LastMeaningfulPrompt { get; set; }
+
+    /// <summary>
     /// Best human-readable identifier for this session: custom /rename name → slug
-    /// → first user message → first 8 chars of session id. Same priority as Session
-    /// Browser. Slug beats FirstMessage because that's what claude code itself shows
-    /// in the CLI tab header on resume — using a different label here makes it harder
-    /// to cross-reference a session in our list against the tab it's running in.
+    /// → latest meaningful user prompt → first user message → first 8 chars of
+    /// session id. Same priority as Session Browser. Slug beats the prompts because
+    /// that's what claude code itself shows in the CLI tab header on resume — using
+    /// a different label here makes it harder to cross-reference a session in our
+    /// list against the tab it's running in.
     /// </summary>
     public string Topic
     {
@@ -86,6 +94,10 @@ public class SessionTokenData
             if (!string.IsNullOrWhiteSpace(Slug))
             {
                 return Slug!;
+            }
+            if (!string.IsNullOrWhiteSpace(LastMeaningfulPrompt))
+            {
+                return LastMeaningfulPrompt!;
             }
             if (!string.IsNullOrWhiteSpace(FirstMessage))
             {

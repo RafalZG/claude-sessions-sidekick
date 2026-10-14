@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.11] — 2026-10-14
+
+### Fixed
+- **Copy Last Reply and session restore now read Claude Code's own
+  per-process session files** (`~/.claude/sessions/<pid>.json`), which name
+  the exact session each running process is showing. This replaces the
+  resume-argument / working-directory / window-title guessing as the primary
+  signal (those stay as fallback for older CLI versions) and should settle
+  the remaining wrong-session cases from
+  [#2](https://github.com/RafalZG/claude-sessions-sidekick/issues/2)/[#3](https://github.com/RafalZG/claude-sessions-sidekick/issues/3).
+- **Session names no longer show slash-command noise** such as
+  `<local-command-caveat>…` — records the harness writes around local
+  commands are skipped. An unnamed session is now labeled with the **latest
+  meaningful prompt** (short acknowledgements like "ok" don't count), so the
+  label follows what the session is about NOW; running sessions additionally
+  carry their live name from the per-process session file.
+
+### Changed
+- **The after-restart restore offer is now a window, not a balloon.** A
+  balloon at login disappears within seconds — easily before the desktop is
+  even visible after a power cut. The "Reopen sessions" window now opens
+  directly, stays on top, and waits until you react.
+
 ## [1.0.10] — 2026-10-07
 
 ### Fixed

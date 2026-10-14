@@ -32,6 +32,51 @@ public static class DiskSessionLookup
     private static readonly Regex CustomTitleRegex = new(
         @"""type""\s*:\s*""custom-title""[^\n]*?""title""\s*:\s*""((?:[^""\\\n]|\\.)+)""", RegexOptions.Compiled);
 
+    /// <summary>
+    /// Builds the session for a process whose pid file names it exactly but
+    /// the watcher doesn't track it (idle for too long). The pid file's live
+    /// name travels along so window-title matching still works.
+    /// </summary>
+    public static SessionTokenData? ForPidInfo(ClaudeSessionPidInfo info)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(info.Cwd))
+            {
+                return null;
+            }
+
+            var projectDir = Path.Combine(
+                ClaudeConfigService.ClaudeProjectsRoot
+                , SessionRestoreService.EncodeProjectDirName(info.Cwd));
+            var filePath = Path.Combine(projectDir, info.SessionId + ".jsonl");
+            if (!File.Exists(filePath))
+            {
+                return null;
+            }
+
+            var file = new FileInfo(filePath);
+            var names = ReadNamesFromFile(filePath);
+            var projectName = Path.GetFileName(info.Cwd.TrimEnd('\\', '/'));
+            var session = new SessionTokenData
+            {
+                SessionId = info.SessionId,
+                FilePath = file.FullName,
+                Cwd = info.Cwd,
+                ProjectName = string.IsNullOrEmpty(projectName) ? info.Cwd : projectName,
+                Slug = names.Slug,
+                CustomName = info.Name ?? names.CustomTitle,
+                LastSeen = file.LastWriteTimeUtc,
+            };
+            return session;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"DiskSessionLookup: pid-info lookup failed: {ex.Message}");
+            return null;
+        }
+    }
+
     public static SessionTokenData? ForProcess(FocusedClaudeProcess proc)
     {
         try

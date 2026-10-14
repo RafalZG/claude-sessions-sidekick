@@ -10,6 +10,10 @@ public class SessionWatcherService : IDisposable
 
     private static readonly TimeSpan ActiveThreshold = TimeSpan.FromMinutes(10);
 
+    /// <summary>A prompt shorter than this is an acknowledgement ("ok",
+    /// "tak", "fix it") — useless as a session label.</summary>
+    private const int MinMeaningfulPromptLength = 15;
+
     private FileSystemWatcher? _watcher;
     private readonly Dictionary<string, SessionTokenData> _sessions = [];
     private readonly Dictionary<string, long> _filePositions = [];
@@ -197,15 +201,17 @@ public class SessionWatcherService : IDisposable
                     var configuredModel = ClaudeConfigService.GetConfiguredModel(session.Cwd);
                     session.ConfiguredModelIsShorthand = ClaudeConfigService.IsModelShorthand(configuredModel);
                 }
+                var messageText = ExtractMessageText(root);
                 if (session.FirstMessage == null)
                 {
-                    session.FirstMessage = ExtractMessageText(root);
+                    session.FirstMessage = messageText;
                 }
                 // Count REAL user turns (typed prompts), not tool_result returns.
                 // This is the only place TurnCount/TurnTimestamps grow now —
                 // assistant-side counting was inflating ~5-15× because of tool rounds.
                 if (IsUserTypedMessage(root))
                 {
+                    UpdateLastMeaningfulPrompt(session, messageText);
                     session.TurnCount++;
                     if (timestamp.HasValue)
                     {
@@ -319,10 +325,24 @@ public class SessionWatcherService : IDisposable
                 if (item.TryGetProperty("type", out var tp) && tp.GetString() == "text" &&
                     item.TryGetProperty("text", out var txt))
                 {
-                    text = txt.GetString();
+                    var blockText = txt.GetString();
+                    // A record can carry a harness block AND the real prompt —
+                    // skip the former so the latter still names the session.
+                    if (blockText != null && IsSystemGeneratedMessage(blockText))
+                    {
+                        continue;
+                    }
+                    text = blockText;
                     break;
                 }
             }
+        }
+
+        if (text != null && IsSystemGeneratedMessage(text))
+        {
+            // Not something the user typed — returning null keeps FirstMessage
+            // empty so a later REAL prompt can fill it.
+            return null;
         }
 
         if (text != null && text.Length > 100)
@@ -331,6 +351,46 @@ public class SessionWatcherService : IDisposable
         }
 
         return text;
+    }
+
+    private static void UpdateLastMeaningfulPrompt(SessionTokenData session, string? messageText)
+    {
+        if (messageText != null && messageText.Trim().Length >= MinMeaningfulPromptLength)
+        {
+            session.LastMeaningfulPrompt = messageText;
+        }
+    }
+
+    // Records the harness writes into the transcript around slash commands,
+    // interrupts and background tasks. They are useless as a session name
+    // ("<local-command-caveat>Caveat: The messages below...") — skip them when
+    // picking the first message (MonitorMike's naming report, 2026-10-14).
+    private static readonly string[] SystemMessagePrefixes =
+    {
+        "<local-command-caveat",
+        "<command-name",
+        "<command-message",
+        "<local-command-stdout",
+        "<system-reminder",
+        "<task-notification",
+        "Caveat: The messages below",
+        "[Request interrupted",
+        // Injected after /compact or auto-compact — not something the user typed.
+        "This session is being continued",
+    };
+
+    internal static bool IsSystemGeneratedMessage(string text)
+    {
+        var trimmed = text.TrimStart();
+        foreach (var prefix in SystemMessagePrefixes)
+        {
+            if (trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static long GetLong(JsonElement element, string property)
@@ -772,13 +832,15 @@ public class SessionWatcherService : IDisposable
                         var cfgModel = ClaudeConfigService.GetConfiguredModel(session.Cwd);
                         session.ConfiguredModelIsShorthand = ClaudeConfigService.IsModelShorthand(cfgModel);
                     }
+                    var messageText = ExtractMessageText(root);
                     if (session.FirstMessage == null)
                     {
-                        session.FirstMessage = ExtractMessageText(root);
+                        session.FirstMessage = messageText;
                     }
                     // Real-user-typed messages only (see IsUserTypedMessage).
                     if (IsUserTypedMessage(root))
                     {
+                        UpdateLastMeaningfulPrompt(session, messageText);
                         session.TurnCount++;
                         session.TurnTimestamps.Add(timestamp);
                     }

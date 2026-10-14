@@ -26,7 +26,8 @@ public static class FocusedSessionResolver
         IReadOnlyList<SessionTokenData> sessions
         , IReadOnlyList<FocusedClaudeProcess> claudeProcesses
         , string? windowTitle
-        , Action<string>? trace = null)
+        , Action<string>? trace = null
+        , IReadOnlyDictionary<int, string>? sessionIdByPid = null)
     {
         if (sessions.Count == 0 || claudeProcesses.Count == 0)
         {
@@ -37,7 +38,7 @@ public static class FocusedSessionResolver
         var candidates = new List<SessionTokenData>();
         foreach (var proc in claudeProcesses)
         {
-            var matched = MatchProcessToSession(sessions, proc);
+            var matched = MatchProcessToSession(sessions, proc, sessionIdByPid?.GetValueOrDefault(proc.Pid));
             trace?.Invoke(matched == null
                 ? $"FocusResolve: pid={proc.Pid} matched no tracked session"
                 : $"FocusResolve: pid={proc.Pid} -> session={matched.SessionId} ({matched.CustomName ?? matched.Slug ?? matched.ProjectName}, lastSeen={matched.LastSeen:HH:mm:ss})");
@@ -74,14 +75,24 @@ public static class FocusedSessionResolver
     }
 
     /// <summary>
-    /// Maps one Claude process to a tracked session: an exact session ID from
-    /// <c>--resume</c> wins; otherwise the process's working directory picks
-    /// the newest session of that project.
+    /// Maps one Claude process to a tracked session. An exact ID known from
+    /// the process's pid file settles it outright (hit or nothing — no
+    /// heuristic may override Claude Code's own record). Otherwise a session
+    /// ID from <c>--resume</c> wins, and failing that the process's working
+    /// directory picks the newest session of that project.
     /// </summary>
     public static SessionTokenData? MatchProcessToSession(
         IReadOnlyList<SessionTokenData> sessions
-        , FocusedClaudeProcess proc)
+        , FocusedClaudeProcess proc
+        , string? exactSessionId = null)
     {
+        if (exactSessionId != null)
+        {
+            var byExact = sessions.FirstOrDefault(
+                s => string.Equals(s.SessionId, exactSessionId, StringComparison.OrdinalIgnoreCase));
+            return byExact;
+        }
+
         var resumeId = ExtractResumeSessionId(proc.CommandLine);
         if (resumeId != null)
         {
@@ -118,7 +129,8 @@ public static class FocusedSessionResolver
     /// </summary>
     public static OpenSessionMatchResult MatchOpenSessions(
         IReadOnlyList<SessionTokenData> sessions
-        , IReadOnlyList<FocusedClaudeProcess> claudeProcesses)
+        , IReadOnlyList<FocusedClaudeProcess> claudeProcesses
+        , IReadOnlyDictionary<int, string>? sessionIdByPid = null)
     {
         var matched = new List<SessionTokenData>();
         var claimedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -127,11 +139,14 @@ public static class FocusedSessionResolver
 
         foreach (var proc in claudeProcesses)
         {
-            var resumeId = ExtractResumeSessionId(proc.CommandLine);
-            if (resumeId != null)
+            // The pid file's session ID is Claude Code's own record — it wins
+            // over the --resume argument (which can be stale after /clear).
+            var knownId = sessionIdByPid?.GetValueOrDefault(proc.Pid)
+                ?? ExtractResumeSessionId(proc.CommandLine);
+            if (knownId != null)
             {
                 var byId = sessions.FirstOrDefault(
-                    s => string.Equals(s.SessionId, resumeId, StringComparison.OrdinalIgnoreCase));
+                    s => string.Equals(s.SessionId, knownId, StringComparison.OrdinalIgnoreCase));
                 if (byId != null)
                 {
                     // Two terminals resuming the same ID are one session — the
@@ -208,13 +223,14 @@ public static class FocusedSessionResolver
     /// </summary>
     public static bool HasTrackedSession(
         IReadOnlyList<SessionTokenData> sessions
-        , FocusedClaudeProcess proc)
+        , FocusedClaudeProcess proc
+        , string? exactSessionId = null)
     {
-        var resumeId = ExtractResumeSessionId(proc.CommandLine);
-        if (resumeId != null)
+        var knownId = exactSessionId ?? ExtractResumeSessionId(proc.CommandLine);
+        if (knownId != null)
         {
             return sessions.Any(
-                s => string.Equals(s.SessionId, resumeId, StringComparison.OrdinalIgnoreCase));
+                s => string.Equals(s.SessionId, knownId, StringComparison.OrdinalIgnoreCase));
         }
 
         var matched = MatchProcessToSession(sessions, proc);
