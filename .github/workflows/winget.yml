@@ -40,6 +40,9 @@ jobs:
         with:
           identifier: RafalZG.ClaudeSessionsSidekick
           version: ${{ inputs.version }}
+          # On workflow_dispatch the action can't infer the tag from the event
+          # (it would fall back to the BRANCH name and 404) — name it outright.
+          release-tag: v${{ inputs.version }}
           installers-regex: 'ClaudeSessionsSidekick-win-Setup\.exe$'
           release-notes-url: https://github.com/RafalZG/claude-sessions-sidekick/releases/tag/v${{ inputs.version }}
           token: ${{ secrets.WINGET_TOKEN }}
