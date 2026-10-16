@@ -343,8 +343,9 @@ public static class SessionRestoreService
     }
 
     /// <summary>Best label the session's own file offers: the user's /rename
-    /// first, then the slug. Empty when the file has neither — the list row
-    /// then shows a shortened id instead of a bare GUID.</summary>
+    /// first, then the slug, then a prompt dug out of the transcript. Empty
+    /// when the file has none of them — the list row then shows a shortened
+    /// id instead of a bare GUID.</summary>
     private static string ReadTopicFromSessionFile(string cwd, string sessionId)
     {
         try
@@ -366,6 +367,14 @@ public static class SessionRestoreService
             if (!string.IsNullOrWhiteSpace(names.Slug))
             {
                 return names.Slug!;
+            }
+            if (!string.IsNullOrWhiteSpace(names.LastMeaningfulPrompt))
+            {
+                return names.LastMeaningfulPrompt!;
+            }
+            if (!string.IsNullOrWhiteSpace(names.FirstPrompt))
+            {
+                return names.FirstPrompt!;
             }
             return "";
         }

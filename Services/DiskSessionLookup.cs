@@ -68,6 +68,8 @@ public static class DiskSessionLookup
                 // Only a name the user typed counts; Claude's own "derived"
                 // label (like "dev-63") would hide the slug and the prompt.
                 CustomName = (info.HasUserName ? info.Name : null) ?? names.CustomTitle,
+                FirstMessage = names.FirstPrompt,
+                LastMeaningfulPrompt = names.LastMeaningfulPrompt,
                 LastSeen = file.LastWriteTimeUtc,
             };
             return session;
@@ -102,7 +104,7 @@ public static class DiskSessionLookup
                 return null;
             }
 
-            var (slug, customTitle) = ReadNamesFromFile(file.FullName);
+            var names = ReadNamesFromFile(file.FullName);
             var projectName = Path.GetFileName(proc.WorkingDirectory.TrimEnd('\\', '/'));
             var session = new SessionTokenData
             {
@@ -110,8 +112,10 @@ public static class DiskSessionLookup
                 FilePath = file.FullName,
                 Cwd = proc.WorkingDirectory,
                 ProjectName = projectName,
-                Slug = slug,
-                CustomName = customTitle,
+                Slug = names.Slug,
+                CustomName = names.CustomTitle,
+                FirstMessage = names.FirstPrompt,
+                LastMeaningfulPrompt = names.LastMeaningfulPrompt,
                 LastSeen = file.LastWriteTimeUtc,
             };
             return session;
@@ -144,7 +148,7 @@ public static class DiskSessionLookup
         return newest;
     }
 
-    internal static (string? Slug, string? CustomTitle) ReadNamesFromFile(string filePath)
+    internal static (string? Slug, string? CustomTitle, string? FirstPrompt, string? LastMeaningfulPrompt) ReadNamesFromFile(string filePath)
     {
         try
         {
@@ -168,12 +172,66 @@ public static class DiskSessionLookup
                 + "\n"
                 + System.Text.Encoding.UTF8.GetString(tail);
             var names = ExtractNames(text);
-            return names;
+            var prompts = ExtractPrompts(text);
+            return (names.Slug, names.CustomTitle, prompts.FirstPrompt, prompts.LastMeaningfulPrompt);
         }
         catch
         {
-            return (null, null);
+            return (null, null, null, null);
         }
+    }
+
+    /// <summary>Digs the prompts out of the same head+tail chunks, for a
+    /// session with no rename and no slug (otherwise the UI shows a bare id).
+    /// Returns the first prompt and the LATEST prompt long enough to mean
+    /// something — the same two fields the watcher keeps, so the Topic ladder
+    /// works identically. Lines cut in half at a chunk boundary simply fail
+    /// to parse and are skipped.</summary>
+    internal static (string? FirstPrompt, string? LastMeaningfulPrompt) ExtractPrompts(string text)
+    {
+        string? firstPrompt = null;
+        string? lastMeaningful = null;
+
+        foreach (var line in text.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0 || trimmed[0] != '{')
+            {
+                continue;
+            }
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(trimmed);
+                var root = doc.RootElement;
+                if (!root.TryGetProperty("type", out var typeProp) || typeProp.GetString() != "user")
+                {
+                    continue;
+                }
+                if (!SessionWatcherService.IsUserTypedMessage(root))
+                {
+                    continue;
+                }
+
+                var message = SessionWatcherService.ExtractMessageText(root);
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    continue;
+                }
+
+                firstPrompt ??= message;
+                if (message.Trim().Length >= SessionWatcherService.MinMeaningfulPromptLength)
+                {
+                    lastMeaningful = message;
+                }
+            }
+            catch
+            {
+                // Broken or half-a-line JSON — skip it.
+            }
+        }
+
+        return (firstPrompt, lastMeaningful);
     }
 
     /// <summary>Takes the LAST slug and custom title found — later records

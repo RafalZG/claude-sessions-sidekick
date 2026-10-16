@@ -13,7 +13,7 @@ public class SessionWatcherService : IDisposable
 
     /// <summary>A prompt shorter than this is an acknowledgement ("ok",
     /// "tak", "fix it") — useless as a session label.</summary>
-    private const int MinMeaningfulPromptLength = 15;
+    internal const int MinMeaningfulPromptLength = 15;
 
     private FileSystemWatcher? _watcher;
     private readonly Dictionary<string, SessionTokenData> _sessions = [];
@@ -302,7 +302,7 @@ public class SessionWatcherService : IDisposable
         }
     }
 
-    private static string? ExtractMessageText(JsonElement root)
+    internal static string? ExtractMessageText(JsonElement root)
     {
         if (!root.TryGetProperty("message", out var msg))
         {
@@ -347,9 +347,16 @@ public class SessionWatcherService : IDisposable
         {
             // Labels are single-line UI strings and get copied into the state
             // dump in app.log — a newline or ANSI escape inside a paste or a
-            // multi-line prompt must not forge lines there.
+            // multi-line prompt must not forge lines there. Format characters
+            // (category Cf: BiDi overrides, zero-width) go too - they can
+            // visually reverse or disguise a label in the restore list.
             var normalizedChars = text
-                .Select(c => char.IsControl(c) || c == '\u2028' || c == '\u2029' ? ' ' : c)
+                .Select(c => char.IsControl(c)
+                    || char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.Format
+                    || c == '\u2028'
+                    || c == '\u2029'
+                    ? ' '
+                    : c)
                 .ToArray();
             text = new string(normalizedChars).Trim();
             if (text.Length == 0)
@@ -475,7 +482,7 @@ public class SessionWatcherService : IDisposable
     /// entries with usage data, and each of those previously counted as a
     /// "turn" via the assistant-side heuristic.
     /// </summary>
-    private static bool IsUserTypedMessage(JsonElement rootElement)
+    internal static bool IsUserTypedMessage(JsonElement rootElement)
     {
         if (!rootElement.TryGetProperty("message", out var msg))
         {

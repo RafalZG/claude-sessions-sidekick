@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.14] — 2026-10-17
+
+### Fixed
+- **"Reopen sessions" no longer shows a shortened id for a long-idle open
+  session.** A session open but idle for many hours isn't tracked by the
+  live watcher, and the disk fallback only looked for a rename or slug in
+  the session file — a session with neither got an id label even though
+  the Session Browser showed a proper topic. The disk fallback now also
+  digs the latest meaningful prompt out of the transcript (same rules as
+  the browser: harness noise filtered, pastes unwrapped), so both windows
+  agree on the label. The copy-reply balloon benefits too for such
+  sessions.
+
 ## [1.0.13] — 2026-10-17
 
 ### Fixed
