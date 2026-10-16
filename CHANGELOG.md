@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.13] — 2026-10-17
+
+### Fixed
+- **A session whose only prompt was a paste is labeled with the pasted
+  text** (a URL, an error line) instead of a bare 8-character id. 1.0.12
+  discarded the whole `<pasted_content>` record while cleaning session
+  labels, which left paste-only sessions with no label at all; now the
+  wrapper tags are stripped and the pasted text itself names the session
+  (collapsed to one line — labels are single-line). Mixed prompts
+  ("h" + a paste) no longer leak the wrapper tag either.
+- **An empty text block no longer hijacks a session's first-message
+  label**: when a message's content array started with an empty block,
+  the label got stuck as empty forever; later blocks in the same message
+  are considered now.
+
 ## [1.0.12] — 2026-10-17
 
 ### Fixed

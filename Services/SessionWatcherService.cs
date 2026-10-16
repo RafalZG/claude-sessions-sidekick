@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using ClaudeSessionsSidekick.Models;
 
 namespace ClaudeSessionsSidekick.Services;
@@ -316,7 +317,7 @@ public class SessionWatcherService : IDisposable
         string? text = null;
         if (content.ValueKind == JsonValueKind.String)
         {
-            text = content.GetString();
+            text = UnwrapPastedContent(content.GetString());
         }
         else if (content.ValueKind == JsonValueKind.Array)
         {
@@ -325,16 +326,35 @@ public class SessionWatcherService : IDisposable
                 if (item.TryGetProperty("type", out var tp) && tp.GetString() == "text" &&
                     item.TryGetProperty("text", out var txt))
                 {
-                    var blockText = txt.GetString();
+                    var blockText = UnwrapPastedContent(txt.GetString());
+                    if (string.IsNullOrWhiteSpace(blockText))
+                    {
+                        continue;
+                    }
                     // A record can carry a harness block AND the real prompt —
                     // skip the former so the latter still names the session.
-                    if (blockText != null && IsSystemGeneratedMessage(blockText))
+                    if (IsSystemGeneratedMessage(blockText))
                     {
                         continue;
                     }
                     text = blockText;
                     break;
                 }
+            }
+        }
+
+        if (text != null)
+        {
+            // Labels are single-line UI strings and get copied into the state
+            // dump in app.log — a newline or ANSI escape inside a paste or a
+            // multi-line prompt must not forge lines there.
+            var normalizedChars = text
+                .Select(c => char.IsControl(c) || c == '\u2028' || c == '\u2029' ? ' ' : c)
+                .ToArray();
+            text = new string(normalizedChars).Trim();
+            if (text.Length == 0)
+            {
+                return null;
             }
         }
 
@@ -347,10 +367,47 @@ public class SessionWatcherService : IDisposable
 
         if (text != null && text.Length > 100)
         {
-            text = text[..100];
+            // Don't cut a surrogate pair (emoji) in half.
+            var cut = char.IsHighSurrogate(text[99]) ? 99 : 100;
+            text = text[..cut];
         }
 
         return text;
+    }
+
+    // NonBacktracking = guaranteed linear time even on a hostile paste made
+    // of thousands of unterminated tags (a backtracking engine goes
+    // quadratic there, and ProcessLine holds the watcher lock).
+    private static readonly Regex PastedContentTagRegex = new(
+        @"</?pasted_content(\s[^>]*)?>", RegexOptions.NonBacktracking | RegexOptions.IgnoreCase);
+
+    private static readonly Regex WhitespaceRunRegex = new(
+        @"\s+", RegexOptions.NonBacktracking);
+
+    /// <summary>A paste lands in the transcript wrapped in
+    /// &lt;pasted_content&gt; tags. The PASTED TEXT itself (a URL, an error,
+    /// a snippet) is often the best session label there is — in a session
+    /// where the user never typed a prompt it's the only one — so drop the
+    /// wrapper and keep what's inside instead of discarding the record.
+    /// Pastes are often multi-line, and labels are single-line UI strings,
+    /// so whitespace runs collapse to one space.</summary>
+    internal static string? UnwrapPastedContent(string? text)
+    {
+        if (text == null || !text.Contains("pasted_content", StringComparison.OrdinalIgnoreCase))
+        {
+            return text;
+        }
+
+        var withoutTags = PastedContentTagRegex.Replace(text, " ");
+        if (withoutTags == text)
+        {
+            // The word appeared but no actual tag — leave the prompt alone.
+            return text;
+        }
+
+        var stripped = WhitespaceRunRegex.Replace(withoutTags, " ").Trim();
+        var result = stripped.Length == 0 ? null : stripped;
+        return result;
     }
 
     private static void UpdateLastMeaningfulPrompt(SessionTokenData session, string? messageText)
@@ -377,9 +434,11 @@ public class SessionWatcherService : IDisposable
         "[Request interrupted",
         // Injected after /compact or auto-compact — not something the user typed.
         "This session is being continued",
-        // Agent-to-agent traffic and pasted attachments — also not typed by the user.
+        // Agent-to-agent traffic — also not typed by the user.
         "<agent-message",
         "Another Claude session sent a message",
+        // Well-formed paste wrappers are unwrapped BEFORE this check (the
+        // pasted text makes a good label); this catches only a broken tag.
         "<pasted_content",
     };
 

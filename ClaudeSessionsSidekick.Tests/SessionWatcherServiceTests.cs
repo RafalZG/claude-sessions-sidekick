@@ -438,6 +438,122 @@ public class SessionWatcherServiceTests
         Assert.Equal("nazwa z /rename", sessions[MergeSid].CustomName);
     }
 
+    // ── UnwrapPastedContent — the pasted text is the label ─────────
+
+    [Theory]
+    // Pure paste: the wrapper goes, the pasted text stays.
+    [InlineData("<pasted_content id=\"b746\">https://example.com/item/171</pasted_content>", "https://example.com/item/171")]
+    // Typed text + paste: no tag leaks into the label.
+    [InlineData("h <pasted_content id=\"5b32\">stack trace line</pasted_content>", "h stack trace line")]
+    // Multi-line paste: labels are single-line, so newlines collapse.
+    [InlineData("<pasted_content id=\"x\">line one\n   line two</pasted_content>", "line one line two")]
+    // Nothing inside: behaves like an empty message.
+    [InlineData("<pasted_content id=\"x\"></pasted_content>", null)]
+    // No wrapper at all: untouched.
+    [InlineData("zwykły prompt", "zwykły prompt")]
+    // The word alone (a prompt ABOUT this feature) is not a tag — untouched,
+    // including its whitespace.
+    [InlineData("why is  pasted_content\nhandled this way?", "why is  pasted_content\nhandled this way?")]
+    [InlineData(null, null)]
+    public void UnwrapPastedContent_KeepsThePastedText(string? text, string? expected)
+    {
+        // Act
+        var result = SessionWatcherService.UnwrapPastedContent(text);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void FirstMessage_PasteOnlySession_IsLabeledWithThePastedText()
+    {
+        // Arrange — the user never typed a prompt, only pasted a URL; the URL
+        // beats showing a bare id (seen on Rafał's laptop after 1.0.12).
+        var watcher = new SessionWatcherService();
+        var fakePath = @"C:\fake\projects\D--src-app\abc.jsonl";
+        var line =
+            """{"type":"user","sessionId":"sess-1","timestamp":"2026-10-14T08:00:00Z","message":{"role":"user","content":"<pasted_content id=\"b746\">\nhttps://g5tfs.example.se:8081/tfs/item/171\n</pasted_content>"}}""";
+
+        // Act
+        watcher.ProcessLine(line, fakePath);
+
+        // Assert
+        var session = Assert.Single(watcher.GetRecentSessions(hours: 24 * 365));
+        Assert.Equal("https://g5tfs.example.se:8081/tfs/item/171", session.FirstMessage);
+        Assert.Equal("https://g5tfs.example.se:8081/tfs/item/171", session.LastMeaningfulPrompt);
+    }
+
+    [Fact]
+    public void FirstMessage_MultiLinePrompt_BecomesOneCleanLine()
+    {
+        // Arrange — labels are single-line and get copied into app.log's
+        // state dump; a newline or tab inside the prompt must not survive.
+        var watcher = new SessionWatcherService();
+        var fakePath = @"C:\fake\projects\D--src-app\abc.jsonl";
+        var line =
+            """{"type":"user","sessionId":"sess-1","timestamp":"2026-10-14T08:00:00Z","message":{"role":"user","content":"linia jedna\nlinia\tdwa"}}""";
+
+        // Act
+        watcher.ProcessLine(line, fakePath);
+
+        // Assert
+        var session = Assert.Single(watcher.GetRecentSessions(hours: 24 * 365));
+        Assert.Equal("linia jedna linia dwa", session.FirstMessage);
+    }
+
+    [Fact]
+    public void FirstMessage_ArrayContent_PasteOnlyBlock_IsUnwrapped()
+    {
+        // Arrange — the paste arrives as a text block in a content array.
+        var watcher = new SessionWatcherService();
+        var fakePath = @"C:\fake\projects\D--src-app\abc.jsonl";
+        var line =
+            """{"type":"user","sessionId":"sess-1","timestamp":"2026-10-14T08:00:00Z","message":{"role":"user","content":[{"type":"text","text":"<pasted_content id=\"x\">https://example.com/bug/42</pasted_content>"}]}}""";
+
+        // Act
+        watcher.ProcessLine(line, fakePath);
+
+        // Assert
+        var session = Assert.Single(watcher.GetRecentSessions(hours: 24 * 365));
+        Assert.Equal("https://example.com/bug/42", session.FirstMessage);
+    }
+
+    [Fact]
+    public void FirstMessage_ArrayContent_EmptyBlockFirst_LaterRealBlockStillNamesTheSession()
+    {
+        // Arrange — an empty text block must not lock FirstMessage to ""
+        // (pre-1.0.13 it did: the empty block won and later blocks were
+        // never looked at).
+        var watcher = new SessionWatcherService();
+        var fakePath = @"C:\fake\projects\D--src-app\abc.jsonl";
+        var line =
+            """{"type":"user","sessionId":"sess-1","timestamp":"2026-10-14T08:00:00Z","message":{"role":"user","content":[{"type":"text","text":""},{"type":"text","text":"dodaj walidację NIP"}]}}""";
+
+        // Act
+        watcher.ProcessLine(line, fakePath);
+
+        // Assert
+        var session = Assert.Single(watcher.GetRecentSessions(hours: 24 * 365));
+        Assert.Equal("dodaj walidację NIP", session.FirstMessage);
+    }
+
+    [Fact]
+    public void FirstMessage_PasteWrappingAHarnessRecord_IsStillSkipped()
+    {
+        // Arrange — what's inside the paste is itself harness noise.
+        var watcher = new SessionWatcherService();
+        var fakePath = @"C:\fake\projects\D--src-app\abc.jsonl";
+        var line =
+            """{"type":"user","sessionId":"sess-1","timestamp":"2026-10-14T08:00:00Z","message":{"role":"user","content":"<pasted_content id=\"x\"><system-reminder>context stuff</system-reminder></pasted_content>"}}""";
+
+        // Act
+        watcher.ProcessLine(line, fakePath);
+
+        // Assert
+        var session = Assert.Single(watcher.GetRecentSessions(hours: 24 * 365));
+        Assert.Null(session.FirstMessage);
+    }
+
     [Fact]
     public void FirstMessage_SkipsLocalCommandRecords_TakesFirstRealPrompt()
     {
