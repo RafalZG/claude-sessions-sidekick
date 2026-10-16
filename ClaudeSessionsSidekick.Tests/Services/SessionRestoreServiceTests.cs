@@ -213,4 +213,25 @@ public class SessionRestoreServiceTests
         // Assert
         Assert.Equal(expected, encoded);
     }
+
+    // ── DisplayTopic — what the Reopen list shows ──────────────────
+
+    [Theory]
+    [InlineData("fix invoice rounding", "0145bfaf-fb65-4d12-aa65-a6ef17ef6411", "fix invoice rounding")]
+    [InlineData("", "0145bfaf-fb65-4d12-aa65-a6ef17ef6411", "0145bfaf")]
+    [InlineData("   ", "0145bfaf-fb65-4d12-aa65-a6ef17ef6411", "0145bfaf")]
+    [InlineData("", "short", "short")]
+    // JSON null in a hand-edited snapshot must not crash the list.
+    [InlineData("", null, "")]
+    public void DisplayTopic_NeverShowsAFullGuid(string topic, string? sessionId, string expected)
+    {
+        // Arrange
+        var reference = new OpenSessionRef { SessionId = sessionId!, Topic = topic };
+
+        // Act
+        var display = reference.DisplayTopic;
+
+        // Assert
+        Assert.Equal(expected, display);
+    }
 }

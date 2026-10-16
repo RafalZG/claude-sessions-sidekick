@@ -24,8 +24,51 @@ public class ClaudeSessionPidFileServiceTests
         Assert.Equal("7d3e0b3d-167d-45ef-a55e-d2114f378e15", info.SessionId);
         Assert.Equal(@"D:\XGGProjectsGit\ExergyERP_Dev", info.Cwd);
         Assert.Equal("fixing KSeF microservice", info.Name);
+        Assert.Equal("user", info.NameSource);
+        Assert.True(info.HasUserName);
         Assert.Equal("busy", info.Status);
         Assert.Equal(DateTimeOffset.FromUnixTimeMilliseconds(1791986469050), info.UpdatedAt);
+    }
+
+    [Fact]
+    public void Parse_DerivedName_IsNotAUserName()
+    {
+        // Arrange — Claude's own throwaway label, not something the user typed.
+        var json = """
+            {"pid":111,"sessionId":"5db49a43-f6c3-41c8-8a11-26c2f8b49a33",
+             "cwd":"D:\\XGGProjectsGit\\ExergyERP_Dev",
+             "name":"exergyerp-dev-6c","nameSource":"derived"}
+            """;
+
+        // Act
+        var info = ClaudeSessionPidFileService.Parse(json, expectedPid: 111);
+
+        // Assert
+        Assert.NotNull(info);
+        Assert.Equal("derived", info!.NameSource);
+        Assert.False(info.HasUserName);
+    }
+
+    [Theory]
+    // Real derived labels seen in the wild: folder slug + "-" + 2 hex chars.
+    [InlineData("exergyerp-dev-6c", @"D:\XGGProjectsGit\ExergyERP_Dev", true)]
+    [InlineData("dev-63", @"C:\src\G5\Dev", true)]
+    [InlineData("dev-7f", @"C:\src\G5\Dev", true)]
+    // User-typed names must survive, even short ones in the same folder.
+    [InlineData("fixing KSeF microservice", @"D:\XGGProjectsGit\ExergyERP_Dev", false)]
+    [InlineData("dev-ux", @"C:\src\G5\Dev", false)]            // suffix not hex
+    [InlineData("dev-123", @"C:\src\G5\Dev", false)]           // suffix too long
+    [InlineData("dev-63", @"C:\src\G5\Other", false)]          // folder doesn't match
+    [InlineData("exergyerp-dev", @"D:\XGGProjectsGit\ExergyERP_Dev", false)] // no suffix
+    [InlineData("", @"C:\src\G5\Dev", false)]
+    [InlineData("dev-63", null, false)]
+    public void IsDerivedAutoName_RecognizesClaudeAutoLabels(string name, string? cwd, bool expected)
+    {
+        // Act
+        var result = ClaudeSessionPidFileService.IsDerivedAutoName(name, cwd);
+
+        // Assert
+        Assert.Equal(expected, result);
     }
 
     [Fact]
@@ -112,5 +155,22 @@ public class ClaudeSessionPidFileServiceTests
         Assert.DoesNotContain('\n', info!.Name!);
         Assert.DoesNotContain('\r', info.Name!);
         Assert.Equal(200, info.Name!.Length);
+    }
+
+    [Fact]
+    public void SanitizeName_StripsAllControlCharacters()
+    {
+        // Arrange — tabs and ANSI escapes could forge log lines or mess up
+        // a terminal that renders the log.
+        var dirty = "ok\tFAKE\u001b[2Jline\u2028more";
+
+        // Act
+        var cleaned = ClaudeSessionPidFileService.SanitizeName(dirty);
+
+        // Assert
+        Assert.NotNull(cleaned);
+        Assert.DoesNotContain(cleaned!, c => char.IsControl(c));
+        Assert.DoesNotContain('\u2028', cleaned!);
+        Assert.StartsWith("ok FAKE", cleaned);
     }
 }

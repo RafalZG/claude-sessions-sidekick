@@ -192,7 +192,7 @@ public partial class SessionRestoreWindow : Window
         public OpenSessionRef Source { get; }
         public bool AlreadyOpen { get; }
         public string OpenNowSuffix => AlreadyOpen ? "  ·  open now" : "";
-        public string Topic => string.IsNullOrWhiteSpace(Source.Topic) ? Source.SessionId : Source.Topic;
+        public string Topic => Source.DisplayTopic;
         public string ProjectName => Source.ProjectName;
         public string? FolderPath => Source.FolderPath;
         public string LastSeenDisplay => FormatAgo(DateTimeOffset.UtcNow - Source.LastSeenUtc);

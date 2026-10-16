@@ -20,6 +20,26 @@ public class OpenSessionRef
 
     [JsonPropertyName("lastSeenUtc")]
     public DateTimeOffset LastSeenUtc { get; set; }
+
+    /// <summary>What a list row shows for this session: the topic, or — when
+    /// none was captured — the first 8 characters of the id instead of the
+    /// whole unreadable GUID.</summary>
+    [JsonIgnore]
+    public string DisplayTopic
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Topic))
+            {
+                return Topic;
+            }
+
+            // SessionId can come back as JSON null from a hand-edited file.
+            var id = SessionId ?? "";
+            var display = id.Length > 8 ? id[..8] : id;
+            return display;
+        }
+    }
 }
 
 /// <summary>

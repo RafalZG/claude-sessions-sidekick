@@ -57,6 +57,23 @@ public class DiskSessionLookupTests
     }
 
     [Fact]
+    public void ExtractNames_DecodedControlCharacters_AreSanitized()
+    {
+        // Arrange — a title whose JSON escapes decode into a real newline and
+        // an ANSI escape; it must come out as one clean line, or a crafted
+        // session file could forge log lines and window labels.
+        var text = @"{""type"":""custom-title"",""title"":""ok\nFAKE\u001b[2Jline""}";
+
+        // Act
+        var names = DiskSessionLookup.ExtractNames(text);
+
+        // Assert
+        Assert.NotNull(names.CustomTitle);
+        Assert.DoesNotContain(names.CustomTitle!, c => char.IsControl(c));
+        Assert.StartsWith("ok FAKE", names.CustomTitle);
+    }
+
+    [Fact]
     public void ExtractNames_DecodesEscapedQuotesAndUnicode()
     {
         // Arrange — a rename with quotes and a Polish character written the

@@ -377,6 +377,10 @@ public class SessionWatcherService : IDisposable
         "[Request interrupted",
         // Injected after /compact or auto-compact — not something the user typed.
         "This session is being continued",
+        // Agent-to-agent traffic and pasted attachments — also not typed by the user.
+        "<agent-message",
+        "Another Claude session sent a message",
+        "<pasted_content",
     };
 
     internal static bool IsSystemGeneratedMessage(string text)
@@ -657,70 +661,126 @@ public class SessionWatcherService : IDisposable
     private static void LoadSessionNames(Dictionary<string, SessionTokenData> sessions)
     {
         var nameCache = LoadNameCache();
-        var updated = false;
 
-        // Read live names from ~/.claude/sessions/*.json (ephemeral PID files)
-        var sessionsDir = Path.Combine(ClaudeConfigService.ClaudeHomeDir, "sessions");
+        // One guarded reader for ~/.claude/sessions/*.json: pid in the file
+        // must match the file name, GUID session id, sanitized name, size cap.
+        var pidInfos = ClaudeSessionPidFileService.ReadAllSessionFiles();
 
-        if (Directory.Exists(sessionsDir))
-        {
-            foreach (var file in Directory.GetFiles(sessionsDir, "*.json"))
-            {
-                try
-                {
-                    using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    using var doc = JsonDocument.Parse(stream);
-                    var root = doc.RootElement;
-
-                    if (root.TryGetProperty("sessionId", out var sidProp) &&
-                        root.TryGetProperty("name", out var nameProp))
-                    {
-                        var sid = sidProp.GetString();
-                        var name = nameProp.GetString();
-                        if (sid != null && !string.IsNullOrEmpty(name))
-                        {
-                            if (!nameCache.TryGetValue(sid, out var cached) || cached != name)
-                            {
-                                nameCache[sid] = name;
-                                updated = true;
-                            }
-                        }
-                    }
-                }
-                catch
-                {
-                    // Skip unreadable files
-                }
-            }
-        }
-
-        // Apply names to sessions. A Claude Code /rename (custom-title in the
-        // JSONL) is authoritative and must NOT be clobbered by this cache: the
-        // cache is fed from ~/.claude/sessions/*.json PID files, whose "name" is
-        // Claude's AUTO agent name, which goes stale the moment the user renames.
-        foreach (var (sid, name) in nameCache)
-        {
-            if (sessions.TryGetValue(sid, out var session) && !session.CustomNameFromRename)
-            {
-                session.CustomName = name;
-            }
-        }
-
+        var updated = MergeNameCache(nameCache, pidInfos, sessions);
         if (updated)
         {
             SaveNameCache(nameCache);
         }
     }
 
-    private static Dictionary<string, string> LoadNameCache()
+    /// <summary>Feeds user-typed names from the pid files into the cache,
+    /// drops leftovers an older Sidekick saved that were never real names,
+    /// and puts the surviving names onto the sessions. Returns true when the
+    /// cache changed and needs saving. Expects <paramref name="sessions"/> to
+    /// hold EVERY session found on disk — entries for unknown sessions are
+    /// treated as orphans and dropped.</summary>
+    internal static bool MergeNameCache(
+        Dictionary<string, string> nameCache
+        , IReadOnlyList<ClaudeSessionPidInfo> pidInfos
+        , Dictionary<string, SessionTokenData> sessions)
     {
-        if (!File.Exists(NameCachePath))
+        var updated = false;
+
+        // Session ids the pid files vouch for right now. "user" means the
+        // user typed the name (/rename); those names may look like anything —
+        // even like Claude's junk labels — and must never be purged.
+        var userNamedSids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var knownPidFileSids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var info in pidInfos)
         {
-            return [];
+            knownPidFileSids.Add(info.SessionId);
+
+            if (info.HasUserName)
+            {
+                userNamedSids.Add(info.SessionId);
+                if (!nameCache.TryGetValue(info.SessionId, out var cached) || cached != info.Name)
+                {
+                    nameCache[info.SessionId] = info.Name!;
+                    updated = true;
+                }
+            }
+            else if (info.NameSource == "derived"
+                && info.Name != null
+                && nameCache.TryGetValue(info.SessionId, out var cached)
+                && cached == info.Name)
+            {
+                // Claude's own throwaway label (like "dev-63") that an older
+                // Sidekick already cached — forget it, so the real name
+                // (slug / last prompt) can show again. Only an explicit
+                // "derived" marker justifies deleting; a missing nameSource
+                // (older CLI) must not erase anything.
+                nameCache.Remove(info.SessionId);
+                updated = true;
+            }
         }
 
+        // Apply names to sessions. A Claude Code /rename (custom-title in the
+        // JSONL) is authoritative and must NOT be clobbered by this cache.
+        foreach (var (sid, name) in nameCache.ToList())
+        {
+            if (!sessions.TryGetValue(sid, out var session))
+            {
+                // No session file anywhere on disk and no pid file either —
+                // the entry can never be shown again, drop it. (A pid file
+                // can exist moments before the session file appears, so
+                // those are kept.)
+                if (!knownPidFileSids.Contains(sid))
+                {
+                    nameCache.Remove(sid);
+                    updated = true;
+                }
+                continue;
+            }
+
+            if (!userNamedSids.Contains(sid) && IsJunkCachedName(name, sid, session.Cwd))
+            {
+                nameCache.Remove(sid);
+                updated = true;
+                continue;
+            }
+
+            if (!session.CustomNameFromRename)
+            {
+                session.CustomName = name;
+            }
+        }
+
+        return updated;
+    }
+
+    /// <summary>A cached name an older Sidekick saved that was never really a
+    /// name: Claude's folder-based auto label ("exergyerp-dev-6c"), or the
+    /// session's own id prefix echoed back ("423cea84").</summary>
+    internal static bool IsJunkCachedName(string name, string sessionId, string? cwd)
+    {
+        if (ClaudeSessionPidFileService.IsDerivedAutoName(name, cwd))
+        {
+            return true;
+        }
+
+        var isIdPrefix = sessionId.StartsWith(name, StringComparison.OrdinalIgnoreCase)
+            && name.Length >= 8;
+        return isIdPrefix;
+    }
+
+    private static Dictionary<string, string> LoadNameCache()
+    {
         try
         {
+            var fileInfo = new FileInfo(NameCachePath);
+            // A healthy cache is a few KB; anything above 5MB is corruption
+            // or tampering — start fresh rather than slurp it.
+            if (!fileInfo.Exists || fileInfo.Length > 5 * 1024 * 1024)
+            {
+                return [];
+            }
+
             var json = File.ReadAllText(NameCachePath);
             return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? [];
         }

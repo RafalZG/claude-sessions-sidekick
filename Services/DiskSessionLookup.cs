@@ -65,7 +65,9 @@ public static class DiskSessionLookup
                 Cwd = info.Cwd,
                 ProjectName = string.IsNullOrEmpty(projectName) ? info.Cwd : projectName,
                 Slug = names.Slug,
-                CustomName = info.Name ?? names.CustomTitle,
+                // Only a name the user typed counts; Claude's own "derived"
+                // label (like "dev-63") would hide the slug and the prompt.
+                CustomName = (info.HasUserName ? info.Name : null) ?? names.CustomTitle,
                 LastSeen = file.LastWriteTimeUtc,
             };
             return session;
@@ -175,7 +177,10 @@ public static class DiskSessionLookup
     }
 
     /// <summary>Takes the LAST slug and custom title found — later records
-    /// carry the current values when the session was renamed.</summary>
+    /// carry the current values when the session was renamed. Both come back
+    /// cleaned the same way as pid-file names (one line, no control
+    /// characters, capped) — decoded escapes could otherwise smuggle real
+    /// newlines or ANSI codes into logs and windows.</summary>
     internal static (string? Slug, string? CustomTitle) ExtractNames(string text)
     {
         string? slug = null;
@@ -190,6 +195,8 @@ public static class DiskSessionLookup
             customTitle = DecodeJsonString(m.Groups[1].Value);
         }
 
+        slug = ClaudeSessionPidFileService.SanitizeName(slug);
+        customTitle = ClaudeSessionPidFileService.SanitizeName(customTitle);
         return (slug, customTitle);
     }
 

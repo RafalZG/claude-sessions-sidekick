@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.12] — 2026-10-17
+
+### Fixed
+- **Sessions no longer show Claude's throwaway auto labels** like `dev-63`
+  or `exergyerp-dev-6c` as their name. Claude Code writes such a label
+  (folder name + two hex characters) into its per-process session file when
+  a session has no real name, and 1.0.11 mistook it for a user-given name
+  and cached it permanently — hiding the slug and the latest-prompt label
+  it was supposed to show. Only names the user actually typed (`/rename`)
+  are used now, and labels already stuck in the cache are cleaned up
+  automatically on the next scan.
+- **The "Reopen sessions" list no longer shows a bare session GUID** when
+  the session wasn't tracked at snapshot time: the session's own file is
+  skimmed for a rename or slug, and when it has neither, a short 8-character
+  id is shown instead of the full GUID.
+- **More harness records are kept out of session labels**: agent-to-agent
+  messages (`<agent-message…`, "Another Claude session sent a message")
+  and pasted attachments (`<pasted_content…`) no longer become a session's
+  first-message or latest-prompt label.
+
 ## [1.0.11] — 2026-10-14
 
 ### Fixed

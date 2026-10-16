@@ -11,5 +11,12 @@ public sealed record ClaudeSessionPidInfo(
     , string SessionId
     , string? Cwd
     , string? Name
+    , string? NameSource
     , string? Status
-    , DateTimeOffset UpdatedAt);
+    , DateTimeOffset UpdatedAt)
+{
+    /// <summary>True only for a name the user typed themselves (/rename).
+    /// Claude's own "derived" names are throwaway labels like "dev-63" and
+    /// must never be shown as the session's name.</summary>
+    public bool HasUserName => NameSource == "user" && !string.IsNullOrWhiteSpace(Name);
+}

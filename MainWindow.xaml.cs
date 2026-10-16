@@ -415,6 +415,14 @@ public partial class MainWindow : Window
 
             if (fromDisk != null && claimedIds.Add(fromDisk.SessionId))
             {
+                // The pid file carries the freshest user-typed name — show it
+                // over whatever the session file had.
+                if (info != null
+                    && info.HasUserName
+                    && string.Equals(fromDisk.SessionId, info.SessionId, StringComparison.OrdinalIgnoreCase))
+                {
+                    fromDisk.Topic = info.Name!;
+                }
                 refs.Add(fromDisk);
             }
         }

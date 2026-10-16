@@ -257,8 +257,8 @@ public static class SessionRestoreService
     /// <summary>
     /// Builds a restorable reference for an exact session ID from its file in
     /// the project folder — used when a process's <c>--resume</c> names a
-    /// session the watcher doesn't track. No file parsing; the ID and folder
-    /// are all a relaunch needs.
+    /// session the watcher doesn't track. The session file is also skimmed for
+    /// a display name (rename / slug) so the list doesn't show a bare GUID.
     /// </summary>
     public static OpenSessionRef? RefFromSessionId(string cwd, string sessionId)
     {
@@ -330,14 +330,48 @@ public static class SessionRestoreService
     private static OpenSessionRef MakeDiskRef(string cwd, string sessionId, DateTimeOffset lastSeenUtc)
     {
         var projectName = Path.GetFileName(cwd.TrimEnd('\\', '/'));
+        var topic = ReadTopicFromSessionFile(cwd, sessionId);
         var reference = new OpenSessionRef
         {
             SessionId = sessionId,
             FolderPath = cwd,
             ProjectName = string.IsNullOrEmpty(projectName) ? cwd : projectName,
-            Topic = "",
+            Topic = topic,
             LastSeenUtc = lastSeenUtc,
         };
         return reference;
+    }
+
+    /// <summary>Best label the session's own file offers: the user's /rename
+    /// first, then the slug. Empty when the file has neither — the list row
+    /// then shows a shortened id instead of a bare GUID.</summary>
+    private static string ReadTopicFromSessionFile(string cwd, string sessionId)
+    {
+        try
+        {
+            var filePath = Path.Combine(
+                ClaudeConfigService.ClaudeProjectsRoot
+                , EncodeProjectDirName(cwd)
+                , sessionId + ".jsonl");
+            if (!File.Exists(filePath))
+            {
+                return "";
+            }
+
+            var names = DiskSessionLookup.ReadNamesFromFile(filePath);
+            if (!string.IsNullOrWhiteSpace(names.CustomTitle))
+            {
+                return names.CustomTitle!;
+            }
+            if (!string.IsNullOrWhiteSpace(names.Slug))
+            {
+                return names.Slug!;
+            }
+            return "";
+        }
+        catch
+        {
+            return "";
+        }
     }
 }
