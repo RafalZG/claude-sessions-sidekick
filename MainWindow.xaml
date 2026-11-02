@@ -164,7 +164,7 @@
                 <TextBlock x:Name="txtWeeklyReset" Text="Resets --" Style="{StaticResource SubText}"/>
             </StackPanel>
 
-            <!-- Weekly - Opus (for Max 5x) -->
+            <!-- Weekly - Opus (for plans with a separate Opus limit) -->
             <StackPanel x:Name="panelOpus" Grid.Row="5" Margin="0,0,0,0" Visibility="Collapsed">
                 <DockPanel>
                     <TextBlock Text="Weekly - Opus" Style="{StaticResource LabelText}"/>

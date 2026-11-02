@@ -741,12 +741,12 @@ public partial class MainWindow : Window
         var compact = mode == WidgetViewMode.Compact;
         var mini = mode == WidgetViewMode.Mini;
 
-        // Session section: Full = full detail, Compact = bars only, Mini = hidden
-        panelSession.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
+        // Session section (with its separator): Full = full detail, Compact = bars
+        // only, Mini = hidden — and gone entirely on plans without a 5-hour window.
+        UpdateSessionSectionVisibility(_usageService.CachedData);
         txtSessionReset.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
 
-        // Separator + Weekly: Full/Compact = visible, Mini = hidden
-        separatorMain.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
+        // Weekly: Full/Compact = visible, Mini = hidden
         panelWeekly.Visibility = mini ? Visibility.Collapsed : Visibility.Visible;
         txtWeeklyReset.Visibility = full ? Visibility.Visible : Visibility.Collapsed;
 
@@ -786,6 +786,25 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, AdjustAfterContentChange);
     }
 
+    /// <summary>
+    /// Some plans no longer have a 5-hour window at all (Ultra, formerly Max 20x)
+    /// and the API stops returning it. Without this the section would freeze on
+    /// its last values. No data yet means we don't know the plan shape, so the
+    /// section stays — it also carries first-fetch error messages.
+    /// </summary>
+    internal static bool ShouldShowSessionSection(UsageData? data)
+    {
+        return data == null || data.FiveHour != null;
+    }
+
+    private void UpdateSessionSectionVisibility(UsageData? data)
+    {
+        var mini = _appSettings.WidgetViewMode == WidgetViewMode.Mini;
+        var visible = !mini && ShouldShowSessionSection(data);
+        panelSession.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        separatorMain.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void UpdateMiniStats()
     {
         var data = _usageService.CachedData;
@@ -795,9 +814,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var session = data.FiveHour != null ? $"{Math.Round(data.FiveHour.Utilization)}%" : "--";
         var weekly = data.SevenDay != null ? $"{Math.Round(data.SevenDay.Utilization)}%" : "--";
-        txtMiniStats.Text = $"{session}  ·  {weekly}";
+        txtMiniStats.Text = data.FiveHour != null
+            ? $"{Math.Round(data.FiveHour.Utilization)}%  ·  {weekly}"
+            : weekly;
 
         var tooltipLines = new List<string>();
         if (data.FiveHour != null)
@@ -1430,7 +1450,10 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"Refresh failed: {ex.Message}");
             AppLogger.Error("SafeRefreshAsync failed", ex);
-            txtSessionPercent.Text = "Refresh error";
+            if (panelSession.Visibility == Visibility.Visible)
+            {
+                txtSessionPercent.Text = "Refresh error";
+            }
         }
     }
 
@@ -1502,7 +1525,10 @@ public partial class MainWindow : Window
     {
         if (data == null)
         {
-            // No data yet (initial failed fetch) - show error in status
+            // No data yet (initial failed fetch) - show error in status.
+            // Bring the section back first; it may be collapsed from earlier
+            // data without a 5-hour window, and it carries this error text.
+            UpdateSessionSectionVisibility(null);
             var err = _usageService.LastError ?? "No data";
             txtSessionPercent.Text = err;
             txtSessionReset.Text = "Will retry in 3 min";
@@ -1524,6 +1550,7 @@ public partial class MainWindow : Window
         }
 
         // Session (5h)
+        UpdateSessionSectionVisibility(data);
         if (data.FiveHour != null)
         {
             var pct = Math.Round(data.FiveHour.Utilization);
@@ -1547,7 +1574,7 @@ public partial class MainWindow : Window
             UpdatePercentColor(txtWeeklyPercent, pct);
         }
 
-        // Opus (if present — Max 5x plan)
+        // Opus (if present — plans with a separate Opus limit)
         if (data.SevenDayOpus != null)
         {
             panelOpus.Visibility = Visibility.Visible;
@@ -1914,7 +1941,7 @@ public partial class MainWindow : Window
         separatorTokens.Visibility = Visibility.Visible;
         panelTokens.Visibility = Visibility.Visible;
 
-        txtTokenTotals.Text = $"{FormatTokens(data.TotalInputTokens + data.TotalCacheTokens)} in  /  {FormatTokens(data.TotalOutputTokens)} out";
+        txtTokenTotals.Text = $"{TokenFormat.Compact(data.TotalInputTokens + data.TotalCacheTokens)} in  /  {TokenFormat.Compact(data.TotalOutputTokens)} out";
         txtTokenTotals.ToolTip = $"Input: {data.TotalInputTokens:N0}\nCache: {data.TotalCacheTokens:N0}\nOutput: {data.TotalOutputTokens:N0}";
 
         // Show attention indicator on the collapsed header when any session
@@ -1976,8 +2003,8 @@ public partial class MainWindow : Window
             }
 
             var contextPct = (int)(100.0 * s.LastTurnContextSize / s.ContextWindowSize);
-            var contextStr = FormatTokens(s.LastTurnContextSize);
-            var windowStr = FormatTokens(s.ContextWindowSize);
+            var contextStr = TokenFormat.Compact(s.LastTurnContextSize);
+            var windowStr = TokenFormat.Compact(s.ContextWindowSize);
             var projectLabel = s.GitBranch != null ? $"{s.ProjectName} ({s.GitBranch})" : s.ProjectName;
             var topicShort = TruncateTopic(s.Topic, 40);
             var label = $"{projectLabel} - {topicShort}";
@@ -2148,7 +2175,7 @@ public partial class MainWindow : Window
             var totalIn = s.InputTokens + s.CacheReadTokens + s.CacheCreationTokens;
             var tokenBlock = new TextBlock
             {
-                Text = $"{FormatTokens(totalIn)} in / {FormatTokens(s.OutputTokens)} out",
+                Text = $"{TokenFormat.Compact(totalIn)} in / {TokenFormat.Compact(s.OutputTokens)} out",
                 Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x9A, 0xAA)),
                 FontSize = 11,
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -2182,7 +2209,7 @@ public partial class MainWindow : Window
                 Foreground = contextBrush,
                 FontSize = 10,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                ToolTip = $"Context: {FormatTokens(s.LastTurnContextSize)} / {FormatTokens(s.ContextWindowSize)}\nWindow: {s.ContextWindowSource}\nCache hit: {s.LastTurnCacheHitRatio:P0}"
+                ToolTip = $"Context: {TokenFormat.Compact(s.LastTurnContextSize)} / {TokenFormat.Compact(s.ContextWindowSize)}\nWindow: {s.ContextWindowSource}\nCache hit: {s.LastTurnCacheHitRatio:P0}"
             };
 
             detailDock.Children.Add(modelBlock);
@@ -2237,16 +2264,6 @@ public partial class MainWindow : Window
         }
 
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, AdjustAfterContentChange);
-    }
-
-    private static string FormatTokens(long tokens)
-    {
-        return tokens switch
-        {
-            >= 1_000_000 => $"{tokens / 1_000_000.0:F1}M",
-            >= 1_000 => $"{tokens / 1_000.0:F1}k",
-            _ => tokens.ToString()
-        };
     }
 
     private static string TruncateTopic(string topic, int maxLength)
@@ -2335,7 +2352,10 @@ public partial class MainWindow : Window
     private async void BtnRefresh_Click(object sender, RoutedEventArgs e)
     {
         btnRefresh.IsEnabled = false;
-        txtSessionPercent.Text = "Refreshing...";
+        if (panelSession.Visibility == Visibility.Visible)
+        {
+            txtSessionPercent.Text = "Refreshing...";
+        }
         await SafeRefreshAsync(manualRefresh: true);
         btnRefresh.IsEnabled = true;
     }

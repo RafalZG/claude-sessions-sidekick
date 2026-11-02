@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.15] — 2026-11-02
+
+### Added
+- **Token counts past one billion now read "1.1B"** instead of "1095.2M"
+  (thanks Oskar for the report — and the billion-token session). One shared
+  formatter now backs every compact token-count display, so the next
+  magnitude tier is a one-line change.
+
+### Fixed
+- **Plans without a 5-hour limit (Ultra, formerly Max 20x) no longer show
+  a frozen "Current session" section.** Anthropic is removing the 5-hour
+  window from Ultra plans and the usage API stops reporting it; the widget
+  used to keep the section on screen with its last values forever. The
+  section (and its separator) now disappears, the Mini view shows just the
+  weekly percentage, and everything comes back automatically if the API
+  reports the window again.
+
 ## [1.0.14] — 2026-10-17
 
 ### Fixed

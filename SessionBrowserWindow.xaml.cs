@@ -558,15 +558,8 @@ public partial class SessionBrowserWindow : Window
             ? $"{(int)span.TotalDays}d"
             : $"{(int)span.TotalHours}h";
 
-        txtStats.Text = $"Totals ({spanText}):  {FormatTokens(totalIn)} in  /  {FormatTokens(totalOut)} out  |  {totalTurns} turns  |  {durationText} active";
+        txtStats.Text = $"Totals ({spanText}):  {TokenFormat.Compact(totalIn)} in  /  {TokenFormat.Compact(totalOut)} out  |  {totalTurns} turns  |  {durationText} active";
     }
-
-    private static string FormatTokens(long tokens) => tokens switch
-    {
-        >= 1_000_000 => $"{tokens / 1_000_000.0:F1}M",
-        >= 1_000 => $"{tokens / 1_000.0:F1}k",
-        _ => tokens.ToString()
-    };
 
     private bool IsStale(SessionViewModel vm)
     {
@@ -1459,8 +1452,8 @@ public class SessionViewModel
         }
     }
 
-    public string TokensInText => FormatTokens(TotalIn);
-    public string TokensOutText => FormatTokens(OutputTokens);
+    public string TokensInText => TokenFormat.Compact(TotalIn);
+    public string TokensOutText => TokenFormat.Compact(OutputTokens);
 
     /// <summary>
     /// Tooltip for the "In" column — breaks the lump-sum total into its three
@@ -1480,11 +1473,11 @@ public class SessionViewModel
             var total = fresh + read + write;
             var readPct = total > 0 ? 100.0 * read / total : 0;
             return
-                $"Total prompt tokens: {FormatTokens(total)}\n" +
+                $"Total prompt tokens: {TokenFormat.Compact(total)}\n" +
                 $"\n" +
-                $"  Fresh input:     {FormatTokens(fresh),10}\n" +
-                $"  Cache reads:     {FormatTokens(read),10}   ({readPct:F0}% of total — billed at ~0.1× rate)\n" +
-                $"  Cache writes:    {FormatTokens(write),10}\n" +
+                $"  Fresh input:     {TokenFormat.Compact(fresh),10}\n" +
+                $"  Cache reads:     {TokenFormat.Compact(read),10}   ({readPct:F0}% of total — billed at ~0.1× rate)\n" +
+                $"  Cache writes:    {TokenFormat.Compact(write),10}\n" +
                 $"\n" +
                 $"Cache reads dominate long sessions because Claude re-reads the\n" +
                 $"conversation history each turn. They're cheap; the headline\n" +
@@ -1492,10 +1485,4 @@ public class SessionViewModel
         }
     }
 
-    private static string FormatTokens(long tokens) => tokens switch
-    {
-        >= 1_000_000 => $"{tokens / 1_000_000.0:F1}M",
-        >= 1_000 => $"{tokens / 1_000.0:F1}k",
-        _ => tokens.ToString()
-    };
 }
