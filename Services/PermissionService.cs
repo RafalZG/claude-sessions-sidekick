@@ -117,6 +117,29 @@ public class PermissionFile
     /// </summary>
     public void Save()
     {
+        // Re-read the file before writing: another Sidekick window (the Status
+        // Line builder writes the statusLine key) or Claude Code itself may
+        // have changed other keys since this window loaded its snapshot, and
+        // saving the stale snapshot would silently drop those changes. Only
+        // the permissions section is ours. If the fresh read fails, fall back
+        // to the snapshot — same policy as Load.
+        try
+        {
+            if (File.Exists(FilePath))
+            {
+                var currentJson = File.ReadAllText(FilePath);
+                if (!string.IsNullOrWhiteSpace(currentJson)
+                    && JsonNode.Parse(currentJson) is JsonObject freshRoot)
+                {
+                    _root = freshRoot;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Save: could not re-read {FilePath}, writing from snapshot: {ex.Message}");
+        }
+
         // Ensure permissions object exists
         if (_root["permissions"] is not JsonObject perms)
         {

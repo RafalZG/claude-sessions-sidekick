@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.16] — 2026-11-10
+
+### Added
+- **Status Line builder** (tray > Tools > Status Line...). Compose the line
+  Claude Code shows at the bottom of the terminal from blocks — project
+  folder, git branch, worktree name, model, context %, session cost, lines
+  changed, 5-hour/weekly limit %, effort, version — with presets and a
+  colored live preview. Block values are colored in the terminal too, and
+  the context/limit percentages turn yellow above 50% and red above 80%.
+  The default preset renders like `ExergyERP_Dev (master) [Fable 5] 9% ctx`.
+  Apply generates a small PowerShell script and points the `statusLine` key
+  in `~/.claude/settings.json` at it; every other setting is preserved
+  (with a `.bak` backup), a status line configured outside Sidekick is never
+  replaced without asking, and Remove undoes the whole thing.
+
+### Fixed
+- **"Session already open" no longer fires for sessions whose claude exited
+  long ago.** The duplicate-resume check matched any process with the session
+  id on its command line — including the `cmd /k` / `powershell -NoExit`
+  shell Sidekick itself launches, which keeps that command line for as long
+  as the terminal tab stays open. Shells and terminal hosts are now ignored;
+  only a real claude process counts, and the dialog shows which process it
+  found (name + PID).
+
 ## [1.0.15] — 2026-11-02
 
 ### Added

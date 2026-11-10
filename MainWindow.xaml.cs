@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private bool _sessionsExpanded;
     private SessionBrowserWindow? _sessionBrowserWindow;
     private PermissionManagerWindow? _permissionManagerWindow;
+    private StatusLineWindow? _statusLineWindow;
     private ClaudeConfigWindow? _claudeConfigWindow;
     private AgentsSkillsWindow? _agentsSkillsWindow;
     private AppSettings _appSettings = new();
@@ -1100,6 +1101,8 @@ public partial class MainWindow : Window
         toolsMenu.DropDownItems.Add(reviewMemItem);
         var reopenItem = new System.Windows.Forms.ToolStripMenuItem("Reopen Sessions...", null, (_, _) => ShowSessionRestore());
         toolsMenu.DropDownItems.Add(reopenItem);
+        var statusLineItem = new System.Windows.Forms.ToolStripMenuItem("Status Line...", null, (_, _) => ShowStatusLine());
+        toolsMenu.DropDownItems.Add(statusLineItem);
         var copyReplyItem = new System.Windows.Forms.ToolStripMenuItem("Copy Latest Reply", null, (_, _) => CopyLatestReply());
         if (IsHotkeyEnabled()) copyReplyItem.ShortcutKeyDisplayString = _appSettings.CopyLatestReplyHotkey;
         toolsMenu.DropDownItems.Add(copyReplyItem);
@@ -1216,6 +1219,20 @@ public partial class MainWindow : Window
         _permissionManagerWindow.Closed += (_, _) => _permissionManagerWindow = null;
         _permissionManagerWindow.Show();
         BringToForeground(_permissionManagerWindow);
+    }
+
+    private void ShowStatusLine()
+    {
+        if (_statusLineWindow is { IsLoaded: true })
+        {
+            BringToForeground(_statusLineWindow);
+            return;
+        }
+
+        _statusLineWindow = new StatusLineWindow(_appSettings);
+        _statusLineWindow.Closed += (_, _) => _statusLineWindow = null;
+        _statusLineWindow.Show();
+        BringToForeground(_statusLineWindow);
     }
 
     private void ShowClaudeConfig()

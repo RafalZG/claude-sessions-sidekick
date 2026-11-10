@@ -149,6 +149,13 @@ public class AppSettings
     /// </summary>
     [JsonPropertyName("enableSessionRestore")]
     public bool EnableSessionRestore { get; set; } = true;
+
+    /// <summary>
+    /// Last template applied (or being edited) in the Status Line builder.
+    /// Null = the window opens with the default preset.
+    /// </summary>
+    [JsonPropertyName("statusLineTemplate")]
+    public string? StatusLineTemplate { get; set; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

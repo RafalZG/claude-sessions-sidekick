@@ -9,27 +9,62 @@ public class ActiveSessionServiceTests
     // OS-dependent, and would require spawning a real claude.exe to assert
     // true-positives. The contract worth pinning here is the input-validation
     // behavior: empty / whitespace / a UUID nobody is running all return
-    // false without throwing, so the caller can use this as a yes/no signal
-    // without try/catch.
+    // null (false) without throwing, so the caller can use this as a yes/no
+    // signal without try/catch.
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void IsResumeRunning_EmptyInput_ReturnsFalseWithoutQuery(string? sessionId)
+    public void FindResumeProcess_EmptyInput_ReturnsNullWithoutQuery(string? sessionId)
     {
         // Should short-circuit before touching WMI — fast path for the common
         // case of a blank/missing session ID.
-        Assert.False(ActiveSessionService.IsResumeRunning(sessionId!));
+        Assert.Null(ActiveSessionService.FindResumeProcess(sessionId!));
     }
 
     [Fact]
-    public void IsResumeRunning_UnknownUuid_ReturnsFalse()
+    public void FindResumeProcess_UnknownUuid_ReturnsNull()
     {
         // A freshly-generated UUID will never match a running process's command
         // line. Confirms the WMI path is invoked and the negative case is
-        // handled cleanly (no exception, just `false`).
+        // handled cleanly (no exception, just null).
         var randomId = Guid.NewGuid().ToString();
-        Assert.False(ActiveSessionService.IsResumeRunning(randomId));
+        Assert.Null(ActiveSessionService.FindResumeProcess(randomId));
+    }
+
+    // IsWrapperProcess is the fix for the false "Session already open" dialog:
+    // Sidekick launches claude via `cmd /k` / `powershell -NoExit`, so the
+    // shell keeps "--resume <uuid>" in its command line long after claude
+    // exits. Those wrappers must never count as an attached claude process.
+
+    [Theory]
+    [InlineData("cmd.exe")]
+    [InlineData("CMD.EXE")]
+    [InlineData("powershell.exe")]
+    [InlineData("pwsh.exe")]
+    [InlineData("bash.exe")]
+    [InlineData("sh.exe")]
+    [InlineData("wt.exe")]
+    [InlineData("WindowsTerminal.exe")]
+    [InlineData("OpenConsole.exe")]
+    [InlineData("conhost.exe")]
+    [InlineData("mintty.exe")]
+    [InlineData(@"C:\Windows\System32\cmd.exe")]
+    public void IsWrapperProcess_ShellsAndTerminalHosts_ReturnTrue(string name)
+    {
+        Assert.True(ActiveSessionService.IsWrapperProcess(name));
+    }
+
+    [Theory]
+    [InlineData("claude.exe")]
+    [InlineData("node.exe")]
+    [InlineData("bun.exe")]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void IsWrapperProcess_ClaudeRuntimesAndBlanks_ReturnFalse(string? name)
+    {
+        Assert.False(ActiveSessionService.IsWrapperProcess(name));
     }
 }

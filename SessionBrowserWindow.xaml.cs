@@ -1095,11 +1095,13 @@ public partial class SessionBrowserWindow : Window
         // the file gets interleaved appends that can break subsequent reads.
         // We don't hard-block — sometimes the user genuinely wants a second
         // read-only window — but the dialog forces an explicit decision.
-        if (ActiveSessionService.IsResumeRunning(vm.SessionId))
+        var activeProcess = ActiveSessionService.FindResumeProcess(vm.SessionId);
+        if (activeProcess != null)
         {
             var ok = ConfirmDialog.Show(
                 "Session already open",
-                $"A claude window is already resuming \"{vm.Topic}\".\n\n" +
+                $"A claude window is already resuming \"{vm.Topic}\" " +
+                $"({activeProcess.ProcessName}, PID {activeProcess.ProcessId}).\n\n" +
                 "Opening a second instance can corrupt the session file " +
                 "because both processes will append to the same JSONL.\n\n" +
                 "Continue anyway?",
