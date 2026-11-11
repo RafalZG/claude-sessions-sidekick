@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.17] — 2026-11-10
+
+### Added
+- **herdr as a launch target.** When [herdr](https://herdr.dev) is installed,
+  the Shell dropdowns (the global one in Settings and the per-entry one on
+  Quick Launch) offer a new "herdr" option. Launching or resuming a session
+  then opens a new herdr tab in the project folder and starts claude there
+  as a herdr agent (status dots, notifications, persistence). If herdr isn't
+  running yet, Sidekick opens a herdr window first and waits for it before
+  creating the tab; if herdr is already running in the background, its window
+  is brought to the front so the new session is visible. Defaults are
+  unchanged — herdr must be picked explicitly, and when herdr can't be
+  reached the launch quietly falls back to the auto-detected terminal.
+
+### Fixed
+- **Settings are now backed up on every save.** Before each write, the current
+  `settings.json` is copied to a timestamped `settings.backup-*.json` (the
+  newest three are kept) and the save itself is atomic. If the file can't be
+  read on startup it's preserved as `settings.corrupt-*.json` instead of being
+  silently replaced with defaults. This makes a bad write — such as an older
+  app version that couldn't read a newer settings file — recoverable.
+- **Fixed a crash (NullReferenceException) when opening or closing from the
+  tray** after the window had torn down its keyboard hook. Hotkey registration
+  now no-ops safely instead of dereferencing the disposed hook.
+
 ## [1.0.16] — 2026-11-10
 
 ### Added

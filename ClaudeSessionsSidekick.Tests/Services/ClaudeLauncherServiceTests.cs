@@ -92,6 +92,21 @@ public class ClaudeLauncherServiceTests
     }
 
     [Fact]
+    public void QuickLaunchEntry_ShellOverride_HerdrSerializesAsStringName()
+    {
+        // Herdr sits at the END of the ShellType enum on purpose — the JSON
+        // uses string names, but keeping ordinals stable costs nothing and
+        // protects anything that ever compares raw values.
+        var entry = new QuickLaunchEntry { Name = "test", FolderPath = @"C:\test", ShellOverride = ShellType.Herdr };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(entry);
+        Assert.Contains("\"shellOverride\":\"Herdr\"", json);
+
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<QuickLaunchEntry>(json);
+        Assert.Equal(ShellType.Herdr, deserialized!.ShellOverride);
+    }
+
+    [Fact]
     public void QuickLaunchEntry_ShellOverride_NullNotInJson()
     {
         var entry = new QuickLaunchEntry { Name = "test", FolderPath = @"C:\test" };

@@ -614,8 +614,16 @@ public partial class MainWindow : Window
 
     private void RegisterAllHotkeys()
     {
+        // The hook is torn down when the window closes; a tray action that
+        // reaches here afterwards (e.g. Settings) must do nothing rather than
+        // dereference a disposed hook.
+        if (_keyboardHook == null)
+        {
+            return;
+        }
+
         RegisterGlobalHotkey();
-        _sessionBrowserBindingId = _keyboardHook!.Register(_appSettings.SessionBrowserHotkey, ShowSessionBrowser);
+        _sessionBrowserBindingId = _keyboardHook.Register(_appSettings.SessionBrowserHotkey, ShowSessionBrowser);
         _promptLibraryBindingId = _keyboardHook.Register(_appSettings.PromptLibraryHotkey, ShowPromptLibrary);
         _permissionManagerBindingId = _keyboardHook.Register(_appSettings.PermissionManagerHotkey, ShowPermissionManager);
         _claudeConfigBindingId = _keyboardHook.Register(_appSettings.ClaudeConfigHotkey, ShowClaudeConfig);
@@ -840,7 +848,12 @@ public partial class MainWindow : Window
 
     private void RegisterGlobalHotkey()
     {
-        _widgetBindingId = _keyboardHook!.Register(_appSettings.WidgetToggleHotkey, ToggleVisibility);
+        if (_keyboardHook == null)
+        {
+            return;
+        }
+
+        _widgetBindingId = _keyboardHook.Register(_appSettings.WidgetToggleHotkey, ToggleVisibility);
         _hotkeyRegistered = _widgetBindingId >= 0;
     }
 
@@ -897,6 +910,11 @@ public partial class MainWindow : Window
 
     private void RegisterQuickLaunchHotkeys()
     {
+        if (_keyboardHook == null)
+        {
+            return;
+        }
+
         foreach (var entry in _appSettings.QuickLaunchEntries)
         {
             if (string.IsNullOrEmpty(entry.Hotkey))
@@ -905,7 +923,7 @@ public partial class MainWindow : Window
             }
 
             var capturedEntry = entry;
-            var id = _keyboardHook!.Register(entry.Hotkey, () => ClaudeLauncherService.Launch(capturedEntry));
+            var id = _keyboardHook.Register(entry.Hotkey, () => ClaudeLauncherService.Launch(capturedEntry));
             if (id >= 0)
             {
                 _quickLaunchHotkeys[id] = entry;

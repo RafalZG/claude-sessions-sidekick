@@ -162,7 +162,31 @@ public partial class SettingsWindow : Window
         cmbEntryShell.Items.Add(new ComboBoxItem { Content = "CMD", Tag = ShellType.Cmd });
         cmbEntryShell.Items.Add(new ComboBoxItem { Content = "PowerShell", Tag = ShellType.PowerShell });
         cmbEntryShell.Items.Add(new ComboBoxItem { Content = "Git Bash", Tag = ShellType.GitBash });
+        if (ShouldOfferHerdr())
+        {
+            cmbEntryShell.Items.Add(new ComboBoxItem { Content = "herdr", Tag = ShellType.Herdr });
+        }
         cmbEntryShell.SelectedIndex = 0;
+    }
+
+    /// <summary>
+    /// The herdr option appears only when herdr is installed — but once any
+    /// saved setting already points at it, keep showing it even after an
+    /// uninstall, so the stored choice stays visible instead of silently
+    /// snapping back to "Use global" on the next save.
+    /// </summary>
+    private bool ShouldOfferHerdr()
+    {
+        if (HerdrService.IsAvailable)
+        {
+            return true;
+        }
+        if (_settings.PreferredShell == ShellType.Herdr)
+        {
+            return true;
+        }
+        var anyEntryUsesHerdr = _settings.QuickLaunchEntries.Any(e => e.ShellOverride == ShellType.Herdr);
+        return anyEntryUsesHerdr;
     }
 
     private void SelectEntryShell(ShellType? shell)
@@ -933,14 +957,20 @@ public partial class SettingsWindow : Window
         cmbShell.Items.Add(new ComboBoxItem { Content = "CMD", Tag = ShellType.Cmd });
         cmbShell.Items.Add(new ComboBoxItem { Content = "PowerShell", Tag = ShellType.PowerShell });
         cmbShell.Items.Add(new ComboBoxItem { Content = "Git Bash", Tag = ShellType.GitBash });
-
-        cmbShell.SelectedIndex = _settings.PreferredShell switch
+        if (ShouldOfferHerdr())
         {
-            ShellType.Cmd => 1,
-            ShellType.PowerShell => 2,
-            ShellType.GitBash => 3,
-            _ => 0
-        };
+            cmbShell.Items.Add(new ComboBoxItem { Content = "herdr", Tag = ShellType.Herdr });
+        }
+
+        cmbShell.SelectedIndex = 0;
+        for (int i = 0; i < cmbShell.Items.Count; i++)
+        {
+            if (((ComboBoxItem)cmbShell.Items[i]).Tag is ShellType tag && tag == _settings.PreferredShell)
+            {
+                cmbShell.SelectedIndex = i;
+                break;
+            }
+        }
 
         cmbShell.SelectionChanged += (_, _) =>
         {
@@ -988,6 +1018,12 @@ public partial class SettingsWindow : Window
             var detected = await Task.Run(() => ClaudeLauncherService.DetectShell());
             txtShellDetected.Text = $"(detected: {detected})";
         }
+        else if (selected is ShellType.Herdr)
+        {
+            txtShellDetected.Text = HerdrService.IsAvailable
+                ? "(opens a new herdr tab; falls back to Auto when herdr isn't running)"
+                : "(herdr not found — launches will fall back to Auto)";
+        }
         else
         {
             txtShellDetected.Text = "";
@@ -996,7 +1032,9 @@ public partial class SettingsWindow : Window
 
     private void UpdateClaudePathVisibility()
     {
-        var isAuto = (cmbShell.SelectedItem as ComboBoxItem)?.Tag is ShellType.Auto;
+        // Herdr behaves like Auto here: it starts the canonical `claude` from
+        // the pane shell's PATH itself, so the custom exe path doesn't apply.
+        var isAuto = (cmbShell.SelectedItem as ComboBoxItem)?.Tag is ShellType.Auto or ShellType.Herdr;
         var vis = isAuto ? Visibility.Collapsed : Visibility.Visible;
         lblClaudePath.Visibility = vis;
         txtClaudeExe.Visibility = vis;

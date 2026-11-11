@@ -164,7 +164,14 @@ public enum ShellType
     Auto,
     Cmd,
     PowerShell,
-    GitBash
+    GitBash,
+
+    /// <summary>
+    /// Launch inside a herdr tab (https://herdr.dev) instead of a standalone
+    /// terminal. Offered in the UI only when herdr is installed; launching
+    /// falls back to Auto when the herdr server isn't running.
+    /// </summary>
+    Herdr
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

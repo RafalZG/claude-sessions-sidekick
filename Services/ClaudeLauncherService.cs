@@ -144,6 +144,51 @@ public static class ClaudeLauncherService
         var effective = shellOverride ?? PreferredShell;
         var shell = effective == ShellType.Auto ? DetectShell() : effective;
 
+        // Herdr runs claude inside a tab of its own terminal. Handled before
+        // the claude-path substitution in LaunchInShellCore: herdr's
+        // `agent start` invokes the canonical `claude` from the pane shell's
+        // PATH itself, so the command string must keep the bare name. The
+        // whole attempt runs off the UI thread — a hung herdr server must
+        // not freeze the tray app — and on any failure (herdr uninstalled,
+        // server not running) falls back to a normal terminal from there.
+        if (shell == ShellType.Herdr)
+        {
+            Task.Run(() =>
+            {
+                bool launched;
+                try
+                {
+                    launched = HerdrService.TryLaunchClaude(workingDir, claudeArgs);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"LaunchInShell: herdr launch threw: {ex.Message}");
+                    launched = false;
+                }
+                if (launched)
+                {
+                    return;
+                }
+
+                try
+                {
+                    var fallbackShell = DetectShell();
+                    AppLogger.Warn($"LaunchInShell: herdr launch failed, falling back to {fallbackShell}");
+                    LaunchInShellCore(workingDir, claudeArgs, fallbackShell);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"LaunchInShell: terminal fallback threw: {ex.Message}");
+                }
+            });
+            return;
+        }
+
+        LaunchInShellCore(workingDir, claudeArgs, shell);
+    }
+
+    private static void LaunchInShellCore(string workingDir, string claudeArgs, ShellType shell)
+    {
         // Git Bash has its own PATH and can't run .cmd files directly — don't substitute
         if (shell != ShellType.GitBash)
         {
