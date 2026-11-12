@@ -27,6 +27,19 @@ public static class HerdrService
     private const int ServerStartPollCount = 24;
     private const int ServerStartPollIntervalMs = 500;
 
+    private const int RestoreWaitMaxMs = 20_000;
+    private const int RestoreWaitIntervalMs = 1_000;
+    private const long MaxSessionFileBytes = 5 * 1024 * 1024;
+    private static readonly TimeSpan RestoreMemory = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan UnavailableCooldown = TimeSpan.FromSeconds(60);
+
+    private static readonly object LaunchLock = new();
+
+    // Only touched while holding LaunchLock.
+    private static HashSet<string> _restoreExpectedIds = new(StringComparer.OrdinalIgnoreCase);
+    private static DateTime _restoreExpectedUntilUtc = DateTime.MinValue;
+    private static DateTime _unavailableUntilUtc = DateTime.MinValue;
+
     public static string? FindHerdrExe()
     {
         var path = Path.Combine(
@@ -68,63 +81,202 @@ public static class HerdrService
             return false;
         }
 
+        // One launch at a time: restoring six sessions at once used to race
+        // herdr's own startup and time some tab creations out.
+        lock (LaunchLock)
+        {
+            var launched = LaunchOneAtATime(exe, workingDir, claudeArgs, claudeTokens);
+            return launched;
+        }
+    }
+
+    private static bool LaunchOneAtATime(string exe, string workingDir, string claudeArgs, string[] claudeTokens)
+    {
+        // When herdr just failed to come up, the launches queued behind it fall
+        // back at once instead of each opening another window and waiting again.
+        if (DateTime.UtcNow < _unavailableUntilUtc)
+        {
+            return false;
+        }
+
         if (!EnsureVisibleHerdrWindow(exe, workingDir))
         {
+            _unavailableUntilUtc = DateTime.UtcNow + UnavailableCooldown;
             AppLogger.Warn("Herdr: no herdr window and could not open one — falling back");
             return false;
         }
 
-        var label = SanitizeLabel(Path.GetFileName(workingDir));
-        var createArgs = new[] { "tab", "create", "--cwd", workingDir, "--label", label, "--focus" };
-        var output = RunCli(exe, createArgs, TabCreateTimeoutMs);
-        if (output == null)
+        var resumeId = FocusedSessionResolver.ExtractResumeSessionId(claudeArgs);
+        if (resumeId != null && IsSessionOpenInHerdr(exe, resumeId))
         {
-            return false;
+            AppLogger.Info($"Herdr: session {resumeId} is already open in herdr — not opening it again");
+            RaiseHerdrWindow();
+            return true;
         }
 
-        var paneId = TryParsePaneId(output);
+        var label = SanitizeLabel(Path.GetFileName(workingDir.TrimEnd('\\', '/')));
+        var paneId = CreatePaneInProjectWorkspace(exe, workingDir, label);
         if (paneId == null)
         {
-            AppLogger.Warn($"Herdr: tab create returned no pane id: {Truncate(output)}");
             return false;
         }
 
-        AppLogger.Info($"Herdr: tab created, pane={paneId}, label={label}");
         Task.Run(() => StartClaudeInPane(exe, paneId, label, claudeTokens));
         RaiseHerdrWindow();
         return true;
     }
 
     /// <summary>
-    /// Makes sure a visible herdr window exists before a tab is created, so the
-    /// new session is actually shown. The herdr server can keep running with no
+    /// Every project folder gets its own herdr workspace, named after the
+    /// folder: a new tab in that workspace when it exists, otherwise a new
+    /// workspace (which comes with its first tab). When the workspace list
+    /// can't be read, the tab goes wherever herdr puts it, as before.
+    /// Returns the pane to start claude in, or null.
+    /// </summary>
+    private static string? CreatePaneInProjectWorkspace(string exe, string workingDir, string label)
+    {
+        var listArgs = new[] { "workspace", "list" };
+        var listOutput = RunCli(exe, listArgs, StatusTimeoutMs);
+        string? workspaceId = null;
+        var listRead = listOutput != null && TryFindWorkspaceIdByLabel(listOutput, label, out workspaceId);
+
+        var plainTabArgs = new[] { "tab", "create", "--cwd", workingDir, "--label", label, "--focus" };
+        string[] createArgs;
+        if (workspaceId != null)
+        {
+            createArgs = new[] { "tab", "create", "--workspace", workspaceId, "--cwd", workingDir, "--label", label, "--focus" };
+        }
+        else if (listRead)
+        {
+            createArgs = new[] { "workspace", "create", "--cwd", workingDir, "--label", label, "--focus" };
+        }
+        else
+        {
+            createArgs = plainTabArgs;
+        }
+
+        var output = RunCli(exe, createArgs, TabCreateTimeoutMs);
+        if (output == null && workspaceId != null)
+        {
+            // The workspace may have been closed a moment ago — a tab anywhere beats no tab.
+            workspaceId = null;
+            createArgs = plainTabArgs;
+            output = RunCli(exe, createArgs, TabCreateTimeoutMs);
+        }
+        if (output == null)
+        {
+            return null;
+        }
+
+        var paneId = TryParsePaneId(output);
+        if (paneId == null)
+        {
+            AppLogger.Warn($"Herdr: '{createArgs[0]} create' returned no pane id: {Truncate(output)}");
+            return null;
+        }
+
+        // Switch the view to that workspace, in case focusing the tab alone doesn't.
+        if (workspaceId != null)
+        {
+            var focusArgs = new[] { "workspace", "focus", workspaceId };
+            RunCliRaw(exe, focusArgs, StatusTimeoutMs);
+        }
+
+        // --label on "workspace create" names the workspace only; its first
+        // tab comes out as "1" (verified on herdr 0.9.5), so name it too.
+        if (createArgs[0] == "workspace")
+        {
+            var tabId = TryParseTabId(output);
+            if (tabId != null)
+            {
+                var renameArgs = new[] { "tab", "rename", tabId, label };
+                RunCli(exe, renameArgs, StatusTimeoutMs);
+            }
+            else
+            {
+                AppLogger.Warn($"Herdr: workspace create returned no tab id: {Truncate(output)}");
+            }
+        }
+
+        AppLogger.Info($"Herdr: {createArgs[0]} created, pane={paneId}, label={label}");
+        return paneId;
+    }
+
+    /// <summary>
+    /// Makes sure a herdr window exists before a tab is created, so the new
+    /// session is actually shown. The herdr server can keep running with no
     /// window attached (the window was closed, or it was started headless), and
-    /// a tab created then would be invisible. When no herdr-owned window is
-    /// found, opens one — which starts the server if it was down and otherwise
-    /// just attaches — and waits for the server to answer. Returns false if the
-    /// server never comes up.
+    /// a tab created then would be invisible. A herdr window means a running
+    /// herdr client process — that works whether it lives in its own console or
+    /// inside Windows Terminal. When there is none, opens one (which starts the
+    /// server if it was down) and waits for the server to answer.
     /// </summary>
     private static bool EnsureVisibleHerdrWindow(string exe, string workingDir)
     {
-        if (FindHerdrWindow() != IntPtr.Zero && IsServerRunning(exe))
+        var hasWindow = FindHerdrClientPids().Count > 0;
+        var serverRunning = IsServerRunning(exe);
+        if (hasWindow && serverRunning)
         {
             return true;
         }
 
-        AppLogger.Info("Herdr: no visible herdr window — opening one");
-        StartHerdrWindow(exe, workingDir);
+        // A herdr server starting from scratch reopens the sessions saved in
+        // its session file — also when the user opened the herdr window just
+        // before us. Read that list before the server is up, so we can wait for
+        // exactly those and never open one of them a second time.
+        if (!serverRunning)
+        {
+            RememberSessionsHerdrWillRestore();
+        }
 
+        if (!hasWindow)
+        {
+            AppLogger.Info("Herdr: no herdr window — opening one");
+            StartHerdrWindow(exe, workingDir);
+        }
+
+        var serverUp = false;
         for (int attempt = 0; attempt < ServerStartPollCount; attempt++)
         {
             Thread.Sleep(ServerStartPollIntervalMs);
             if (IsServerRunning(exe))
             {
                 AppLogger.Info($"Herdr: server reachable after {(attempt + 1) * ServerStartPollIntervalMs} ms");
-                return true;
+                serverUp = true;
+                break;
             }
         }
 
-        return false;
+        if (serverUp && _restoreExpectedIds.Count > 0 && DateTime.UtcNow < _restoreExpectedUntilUtc)
+        {
+            WaitForHerdrRestore(exe);
+        }
+        return serverUp;
+    }
+
+    private static void RememberSessionsHerdrWillRestore()
+    {
+        var sessionFile = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            @"herdr\session.json");
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var sessionFileInfo = new FileInfo(sessionFile);
+            if (sessionFileInfo.Exists && sessionFileInfo.Length <= MaxSessionFileBytes)
+            {
+                var json = File.ReadAllText(sessionFile);
+                ids = ParseSavedSessionIds(json);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Herdr: could not read herdr's saved sessions: {ex.Message}");
+        }
+
+        _restoreExpectedIds = ids;
+        _restoreExpectedUntilUtc = DateTime.UtcNow + RestoreMemory;
+        AppLogger.Info($"Herdr: herdr will reopen {ids.Count} saved session(s) on start");
     }
 
     private static bool IsServerRunning(string exe)
@@ -140,38 +292,342 @@ public static class HerdrService
     }
 
     /// <summary>
-    /// Opens herdr in its own console window. Deliberately not via Windows
-    /// Terminal: a wt-hosted herdr renders inside the WindowsTerminal process,
-    /// so its window can't be attributed back to a herdr process, which would
-    /// defeat <see cref="FindHerdrWindow"/> and spawn a fresh window on every
-    /// launch. A herdr console window is owned by the herdr process itself, so
-    /// it can be found and reused. A new top-level window appears and takes
-    /// focus, so the session the caller is about to create shows straight away.
+    /// Opens herdr in Windows Terminal when it is installed — pasting with
+    /// Ctrl+V or the right mouse button only works there, the old console
+    /// window hands those keys to herdr instead of pasting. Without Windows
+    /// Terminal, falls back to herdr's own console window.
     /// </summary>
     private static void StartHerdrWindow(string exe, string workingDir)
     {
+        var wtExe = FindWindowsTerminalExe();
+
+        // Windows Terminal reads ";" in its arguments as "next command", even
+        // inside quotes — so the folder goes in as WorkingDirectory with "-d .",
+        // and a herdr path containing ";" skips Windows Terminal altogether.
+        if (wtExe != null && !exe.Contains(';'))
+        {
+            var wtPsi = new ProcessStartInfo
+            {
+                FileName = wtExe,
+                WorkingDirectory = workingDir,
+                UseShellExecute = false
+            };
+            wtPsi.ArgumentList.Add("-w");
+            wtPsi.ArgumentList.Add("herdr");
+            wtPsi.ArgumentList.Add("new-tab");
+            wtPsi.ArgumentList.Add("-d");
+            wtPsi.ArgumentList.Add(".");
+            wtPsi.ArgumentList.Add(exe);
+            if (TryStart(wtPsi, "Windows Terminal"))
+            {
+                return;
+            }
+        }
+        else
+        {
+            AppLogger.Info("Herdr: not using Windows Terminal — pasting into herdr won't work in a plain console window");
+        }
+
+        var consolePsi = new ProcessStartInfo
+        {
+            FileName = exe,
+            WorkingDirectory = workingDir,
+            UseShellExecute = true
+        };
+        TryStart(consolePsi, "a console window");
+    }
+
+    private static bool TryStart(ProcessStartInfo psi, string where)
+    {
         try
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe,
-                WorkingDirectory = workingDir,
-                UseShellExecute = true
-            };
+            AppLogger.Info($"Herdr: opening herdr in {where}");
             var process = Process.Start(psi);
             process?.Dispose();
+            return true;
         }
         catch (Exception ex)
         {
-            AppLogger.Warn($"Herdr: could not open a herdr window: {ex.Message}");
+            AppLogger.Warn($"Herdr: could not open herdr in {where}: {ex.Message}");
+            return false;
+        }
+    }
+
+    private static string? FindWindowsTerminalExe()
+    {
+        var path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            @"Microsoft\WindowsApps\wt.exe");
+        var found = File.Exists(path) ? path : null;
+        return found;
+    }
+
+    /// <summary>
+    /// Waits until every session herdr is about to reopen shows up in its agent
+    /// list. Gives up after a while — then the remembered list still stops us
+    /// from opening those sessions a second time.
+    /// </summary>
+    private static void WaitForHerdrRestore(string exe)
+    {
+        var watch = Stopwatch.StartNew();
+        HashSet<string>? lastOpen = null;
+        while (watch.ElapsedMilliseconds < RestoreWaitMaxMs)
+        {
+            var open = ListSessionIdsOpenInHerdr(exe);
+            if (open != null)
+            {
+                lastOpen = open;
+                if (_restoreExpectedIds.IsSubsetOf(open))
+                {
+                    break;
+                }
+            }
+            Thread.Sleep(RestoreWaitIntervalMs);
+        }
+
+        // From here herdr's own list is the truth for every session that came
+        // back — a restored session the user closes later may be reopened.
+        // Only the ones still missing stay remembered for a short while.
+        if (lastOpen != null)
+        {
+            _restoreExpectedIds.ExceptWith(lastOpen);
+        }
+
+        if (_restoreExpectedIds.Count == 0)
+        {
+            AppLogger.Info($"Herdr: its saved sessions are back after {watch.ElapsedMilliseconds} ms");
+        }
+        else
+        {
+            AppLogger.Warn($"Herdr: after {watch.ElapsedMilliseconds} ms herdr still hasn't reopened {string.Join(", ", _restoreExpectedIds)}");
         }
     }
 
     /// <summary>
-    /// Best-effort: brings a herdr-owned window to the foreground so a tab
-    /// created in an already-running, backgrounded herdr is visible. When herdr
-    /// renders inside a host terminal that owns the window (no window handle on
-    /// any herdr process), this safely finds nothing and does nothing. Windows'
+    /// True when herdr shows the session now, or is still expected to reopen it
+    /// from its saved state. When herdr can't be asked, false — a second copy
+    /// is better than a lost session.
+    /// </summary>
+    private static bool IsSessionOpenInHerdr(string exe, string sessionId)
+    {
+        var expectedFromRestore = DateTime.UtcNow < _restoreExpectedUntilUtc
+            && _restoreExpectedIds.Contains(sessionId);
+        if (expectedFromRestore)
+        {
+            AppLogger.Warn($"Herdr: not opening {sessionId} — herdr was about to reopen it itself; reopen it again if it doesn't show up");
+            return true;
+        }
+
+        var open = ListSessionIdsOpenInHerdr(exe);
+        if (open == null)
+        {
+            Thread.Sleep(RestoreWaitIntervalMs);
+            open = ListSessionIdsOpenInHerdr(exe);
+        }
+        if (open == null)
+        {
+            AppLogger.Warn($"Herdr: could not ask herdr which sessions are open — opening {sessionId} anyway");
+            return false;
+        }
+
+        var isOpen = open.Contains(sessionId);
+        return isOpen;
+    }
+
+    /// <summary>Null when herdr could not be asked — not the same as "none open".</summary>
+    private static HashSet<string>? ListSessionIdsOpenInHerdr(string exe)
+    {
+        var listArgs = new[] { "agent", "list" };
+        var result = RunCliRaw(exe, listArgs, StatusTimeoutMs);
+        if (result == null || result.ExitCode != 0)
+        {
+            return null;
+        }
+
+        var ids = ParseOpenSessionIds(result.Stdout);
+        return ids;
+    }
+
+    /// <summary>
+    /// Claude session ids from <c>herdr agent list</c>
+    /// (<c>result.agents[].agent_session.value</c>).
+    /// </summary>
+    internal static HashSet<string> ParseOpenSessionIds(string json)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!TryGetResultObject(doc.RootElement, out var result)
+                || !result.TryGetProperty("agents", out var agents)
+                || agents.ValueKind != JsonValueKind.Array)
+            {
+                return ids;
+            }
+
+            foreach (var agent in agents.EnumerateArray())
+            {
+                AddSessionIdOf(agent, ids);
+            }
+        }
+        catch (JsonException)
+        {
+            // Unreadable output = nothing known to be open.
+        }
+        return ids;
+    }
+
+    /// <summary>
+    /// Claude session ids herdr saved in its session file — every pane that
+    /// carries an <c>agent_session</c>, wherever it sits in the file. Searched
+    /// for rather than read along a fixed path, because the file is herdr's
+    /// own and its layout may change between versions.
+    /// </summary>
+    internal static HashSet<string> ParseSavedSessionIds(string json)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            CollectSessionIds(doc.RootElement, ids);
+        }
+        catch (JsonException)
+        {
+            // Unreadable file = herdr will reopen nothing we know of.
+        }
+        return ids;
+    }
+
+    private static void CollectSessionIds(JsonElement element, HashSet<string> ids)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            AddSessionIdOf(element, ids);
+            foreach (var property in element.EnumerateObject())
+            {
+                CollectSessionIds(property.Value, ids);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                CollectSessionIds(item, ids);
+            }
+        }
+    }
+
+    private static void AddSessionIdOf(JsonElement holder, HashSet<string> ids)
+    {
+        if (holder.ValueKind != JsonValueKind.Object
+            || !holder.TryGetProperty("agent_session", out var session)
+            || session.ValueKind != JsonValueKind.Object
+            || !session.TryGetProperty("value", out var value)
+            || value.ValueKind != JsonValueKind.String)
+        {
+            return;
+        }
+
+        // Stored in the dashed form, the only one a --resume argument uses.
+        if (Guid.TryParse(value.GetString(), out var guid))
+        {
+            var normalized = guid.ToString("D");
+            ids.Add(normalized);
+        }
+    }
+
+    /// <summary>
+    /// Herdr processes that are windows the user looks at, as opposed to the
+    /// background server and our own short CLI calls.
+    /// </summary>
+    private static List<int> FindHerdrClientPids()
+    {
+        var clientPids = new List<int>();
+        foreach (var process in Process.GetProcessesByName("herdr"))
+        {
+            var pid = process.Id;
+            process.Dispose();
+            // An unreadable command line (e.g. herdr running as administrator)
+            // counts as a window, rather than opening yet another one.
+            var commandLine = ClaudeProcessService.GetCommandLine(pid);
+            if (commandLine == null || IsHerdrClientCommandLine(commandLine))
+            {
+                clientPids.Add(pid);
+            }
+        }
+        return clientPids;
+    }
+
+    // First words that make herdr run a command and exit (or be the server)
+    // rather than show a window. Anything else counts as a window, so an
+    // unknown new flag errs towards "a window is there" — never towards
+    // opening yet another one.
+    private static readonly HashSet<string> NonWindowFirstWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "server", "status", "update", "completion", "channel", "machine", "api", "config",
+        "workspace", "worktree", "tab", "notification", "agent", "pane", "integration",
+        "--machine", "--help", "-h", "--version", "-V", "--skill"
+    };
+
+    internal static bool IsHerdrClientCommandLine(string commandLine)
+    {
+        var trimmed = commandLine.Trim();
+        var exeEnd = FindExeEnd(trimmed);
+        string rest;
+        if (exeEnd >= 0)
+        {
+            rest = trimmed[exeEnd..].TrimStart('"');
+        }
+        else
+        {
+            var space = trimmed.IndexOf(' ');
+            rest = space < 0 ? "" : trimmed[(space + 1)..];
+        }
+
+        var args = rest.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (args.Length == 0)
+        {
+            return true;
+        }
+
+        if (args[0].Equals("session", StringComparison.OrdinalIgnoreCase))
+        {
+            var isAttach = args.Length > 1 && args[1].Equals("attach", StringComparison.OrdinalIgnoreCase);
+            return isAttach;
+        }
+
+        var isClient = !NonWindowFirstWords.Contains(args[0]);
+        return isClient;
+    }
+
+    /// <summary>
+    /// Position right after the first ".exe" that really ends the program path —
+    /// followed by a quote, whitespace or the end — so a folder such as
+    /// "joe.exeter" isn't mistaken for it. -1 when there is none.
+    /// </summary>
+    private static int FindExeEnd(string commandLine)
+    {
+        var from = 0;
+        while (true)
+        {
+            var index = commandLine.IndexOf(".exe", from, StringComparison.OrdinalIgnoreCase);
+            if (index < 0)
+            {
+                return -1;
+            }
+
+            var end = index + 4;
+            if (end == commandLine.Length || commandLine[end] == '"' || char.IsWhiteSpace(commandLine[end]))
+            {
+                return end;
+            }
+            from = end;
+        }
+    }
+
+    /// <summary>
+    /// Best-effort: brings the herdr window to the foreground so a tab created
+    /// in an already-running, backgrounded herdr is visible. Windows'
     /// foreground rules can also turn SetForegroundWindow into a taskbar flash
     /// rather than a real raise when Sidekick doesn't hold the foreground — that
     /// is expected, not a failure.
@@ -199,25 +655,34 @@ public static class HerdrService
     }
 
     /// <summary>
-    /// First visible top-level window owned by any herdr process, or
-    /// <see cref="IntPtr.Zero"/> when none — the server process has no window,
-    /// so this skips it and finds the window of a console-hosted herdr client.
-    /// Any herdr client window is fine to raise: they all attach to the same
-    /// session, so "first in z-order" needs no main-window preference.
+    /// The window showing a herdr client, or <see cref="IntPtr.Zero"/>. A client
+    /// in its own console owns its window directly. A client inside Windows
+    /// Terminal doesn't — the window belongs to the WindowsTerminal process,
+    /// which usually holds ALL of the user's terminal windows. There only the
+    /// window whose title herdr set ("COMPUTER: tab") counts; better to raise
+    /// nothing than some unrelated terminal.
     /// </summary>
     private static IntPtr FindHerdrWindow()
     {
-        var herdrPids = new HashSet<uint>();
-        foreach (var process in Process.GetProcessesByName("herdr"))
-        {
-            herdrPids.Add((uint)process.Id);
-            process.Dispose();
-        }
-        if (herdrPids.Count == 0)
+        var clientPids = FindHerdrClientPids();
+        if (clientPids.Count == 0)
         {
             return IntPtr.Zero;
         }
 
+        var herdrPids = new HashSet<uint>();
+        var terminalPids = new HashSet<uint>();
+        foreach (var pid in clientPids)
+        {
+            herdrPids.Add((uint)pid);
+            var terminalPid = FocusedSessionService.FindAncestorPid(pid, "WindowsTerminal.exe");
+            if (terminalPid != null)
+            {
+                terminalPids.Add((uint)terminalPid.Value);
+            }
+        }
+
+        var titlePrefixes = new[] { Environment.MachineName + ":", System.Net.Dns.GetHostName() + ":" };
         var found = IntPtr.Zero;
         EnumWindows((hWnd, _) =>
         {
@@ -226,15 +691,38 @@ public static class HerdrService
                 return true;
             }
             GetWindowThreadProcessId(hWnd, out uint windowPid);
-            if (!herdrPids.Contains(windowPid))
+            if (herdrPids.Contains(windowPid))
+            {
+                found = hWnd;
+                return false;
+            }
+            if (!terminalPids.Contains(windowPid))
             {
                 return true;
             }
-            found = hWnd;
-            return false;
+
+            var title = GetWindowTitle(hWnd);
+            if (titlePrefixes.Any(p => title.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            {
+                found = hWnd;
+                return false;
+            }
+            return true;
         }, IntPtr.Zero);
+
         return found;
     }
+
+    private static string GetWindowTitle(IntPtr hWnd)
+    {
+        var buffer = new System.Text.StringBuilder(256);
+        GetWindowText(hWnd, buffer, buffer.Capacity);
+        var title = buffer.ToString();
+        return title;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
 
     private const int SW_RESTORE = 9;
 
@@ -397,7 +885,7 @@ public static class HerdrService
 
     /// <summary>
     /// Pulls <c>result.root_pane.pane_id</c> out of the JSON that
-    /// <c>herdr tab create</c> prints. Null when the shape doesn't match or
+    /// <c>herdr tab create</c> and <c>herdr workspace create</c> print. Null when the shape doesn't match or
     /// the id contains characters outside herdr's <c>w1:p2</c>-style format.
     /// </summary>
     internal static string? TryParsePaneId(string json)
@@ -405,44 +893,130 @@ public static class HerdrService
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("result", out var result)
+            if (!TryGetResultObject(doc.RootElement, out var result)
                 || !result.TryGetProperty("root_pane", out var rootPane)
+                || rootPane.ValueKind != JsonValueKind.Object
                 || !rootPane.TryGetProperty("pane_id", out var paneIdElement))
             {
                 return null;
             }
 
-            var paneId = paneIdElement.GetString();
-            if (string.IsNullOrEmpty(paneId) || paneId.Length > 64)
-            {
-                return null;
-            }
-
-            // First char must be alphanumeric so the id can never look like a
-            // CLI flag ("--version") when passed back to herdr.
-            if (!char.IsAsciiLetterOrDigit(paneId[0]))
-            {
-                return null;
-            }
-
-            foreach (var c in paneId)
-            {
-                bool ok = (c >= 'a' && c <= 'z')
-                       || (c >= 'A' && c <= 'Z')
-                       || (c >= '0' && c <= '9')
-                       ||  c == ':' || c == '-' || c == '_';
-                if (!ok)
-                {
-                    return null;
-                }
-            }
-
-            return paneId;
+            var paneId = paneIdElement.ValueKind == JsonValueKind.String ? paneIdElement.GetString() : null;
+            var safePaneId = IsSafeHerdrId(paneId) ? paneId : null;
+            return safePaneId;
         }
         catch (JsonException)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Looks up the workspace named <paramref name="label"/> in
+    /// <c>herdr workspace list</c> output. Returns false when the output can't
+    /// be understood — then nobody can tell whether the workspace exists, so the
+    /// caller must not create another one. True with a null id means it was
+    /// read and there is no such workspace.
+    /// </summary>
+    internal static bool TryFindWorkspaceIdByLabel(string json, string label, out string? workspaceId)
+    {
+        workspaceId = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!TryGetResultObject(doc.RootElement, out var result)
+                || !result.TryGetProperty("workspaces", out var workspaces)
+                || workspaces.ValueKind != JsonValueKind.Array)
+            {
+                return false;
+            }
+
+            foreach (var workspace in workspaces.EnumerateArray())
+            {
+                if (workspace.ValueKind != JsonValueKind.Object
+                    || !workspace.TryGetProperty("label", out var labelElement)
+                    || labelElement.ValueKind != JsonValueKind.String
+                    || !workspace.TryGetProperty("workspace_id", out var idElement)
+                    || idElement.ValueKind != JsonValueKind.String)
+                {
+                    return false;
+                }
+
+                if (string.Equals(labelElement.GetString(), label, StringComparison.OrdinalIgnoreCase))
+                {
+                    var foundId = idElement.GetString();
+                    if (!IsSafeHerdrId(foundId))
+                    {
+                        return false;
+                    }
+                    workspaceId = foundId;
+                    return true;
+                }
+            }
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary><c>result.root_pane.tab_id</c> from <c>workspace create</c> / <c>tab create</c> output, or null.</summary>
+    internal static string? TryParseTabId(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!TryGetResultObject(doc.RootElement, out var result)
+                || !result.TryGetProperty("root_pane", out var rootPane)
+                || rootPane.ValueKind != JsonValueKind.Object
+                || !rootPane.TryGetProperty("tab_id", out var tabIdElement)
+                || tabIdElement.ValueKind != JsonValueKind.String)
+            {
+                return null;
+            }
+
+            var tabId = tabIdElement.GetString();
+            var safeTabId = IsSafeHerdrId(tabId) ? tabId : null;
+            return safeTabId;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    // TryGetProperty throws on anything that isn't a JSON object, so check first.
+    private static bool TryGetResultObject(JsonElement root, out JsonElement result)
+    {
+        result = default;
+        var found = root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty("result", out result)
+            && result.ValueKind == JsonValueKind.Object;
+        return found;
+    }
+
+    /// <summary>
+    /// Herdr ids look like <c>w1</c> or <c>w1:p2</c>. The first character must
+    /// be a letter or digit so an id can never look like a CLI flag
+    /// ("--version") when passed back to herdr.
+    /// </summary>
+    private static bool IsSafeHerdrId(string? id)
+    {
+        if (string.IsNullOrEmpty(id) || id.Length > 64 || !char.IsAsciiLetterOrDigit(id[0]))
+        {
+            return false;
+        }
+
+        foreach (var c in id)
+        {
+            var ok = char.IsAsciiLetterOrDigit(c) || c == ':' || c == '-' || c == '_';
+            if (!ok)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     /// <summary>
@@ -461,14 +1035,20 @@ public static class HerdrService
             .Where(c => char.IsLetterOrDigit(c) || c is ' ' or '-' or '_' or '.' or '(' or ')')
             .ToArray();
         var joined = new string(kept);
-        var label = joined.Trim();
+        // Starts with a letter or digit, so a folder named "--help" can't turn
+        // the label into something herdr reads as an option.
+        var fromFirstLetter = joined
+            .SkipWhile(c => !char.IsLetterOrDigit(c))
+            .ToArray();
+        var startsClean = new string(fromFirstLetter);
+        var label = startsClean.TrimEnd();
         if (label.Length == 0)
         {
             return "claude";
         }
         if (label.Length > 48)
         {
-            label = label[..48];
+            label = label[..48].TrimEnd();
         }
         return label;
     }

@@ -227,6 +227,39 @@ public static class FocusedSessionService
         return matched;
     }
 
+    /// <summary>
+    /// Walks up the parent chain of <paramref name="pid"/> and returns the first
+    /// ancestor whose exe name matches, or null. Best-effort: failure = null.
+    /// </summary>
+    internal static int? FindAncestorPid(int pid, string exeName, int maxDepth = 8)
+    {
+        try
+        {
+            var processes = SnapshotProcesses();
+            var current = pid;
+            for (int depth = 0; depth < maxDepth; depth++)
+            {
+                if (!processes.TryGetValue(current, out var entry) || entry.ParentPid == 0 || entry.ParentPid == current)
+                {
+                    return null;
+                }
+
+                current = entry.ParentPid;
+                if (processes.TryGetValue(current, out var parent)
+                    && parent.Name.Equals(exeName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return current;
+                }
+            }
+            return null;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"FocusedSessionService: ancestor lookup failed: {ex.Message}");
+            return null;
+        }
+    }
+
     // ---- process snapshot (pid -> parent pid + exe name) ----
 
     private readonly record struct ProcessEntry(int ParentPid, string Name);

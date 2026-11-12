@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.18] — 2026-11-12
+
+### Changed
+- **One herdr workspace per project.** Sessions launched into herdr now go to
+  a workspace named after the project folder — created the first time,
+  reused after that — instead of piling up as tabs in the first workspace.
+  Every tab, including the first one of a new workspace, is named after the
+  project. herdr's Agents list still shows every session across all workspaces.
+
+### Fixed
+- **No more duplicate sessions in herdr after a restart.** herdr reopens the
+  sessions it had before on its own when it starts; Sidekick's "reopen
+  previous sessions" could open the same ones a second time. Sidekick now
+  reads which sessions herdr is about to reopen, waits for them, and skips
+  any session herdr already shows. Launches into herdr also run one at a
+  time, so restoring several sessions at once no longer times out and leaves
+  empty herdr tabs or stray terminal windows behind.
+- **"Reopen sessions" checks what is open when you click**, not when the
+  window appeared — sessions reopened in the meantime are skipped.
+- **Paste works in herdr.** Sidekick now opens herdr in Windows Terminal when
+  it is installed (Ctrl+V and right-click paste don't reach herdr in the old
+  console window). Without Windows Terminal it still uses the console window.
+
 ## [1.0.17] — 2026-11-10
 
 ### Added

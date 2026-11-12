@@ -431,6 +431,36 @@ public partial class MainWindow : Window
         return refs;
     }
 
+    /// <summary>Only exact ids (pid file or --resume), never a guess from the
+    /// newest file in a folder — a wrong guess here would hide a session the
+    /// user asked to reopen.</summary>
+    private static HashSet<string> GetSessionIdsOfRunningClaudeProcesses()
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var processes = FocusedSessionService.EnumerateRunningClaudeProcesses();
+            var pids = processes
+                .Select(p => p.Pid)
+                .ToList();
+            var pidInfos = ClaudeSessionPidFileService.ReadForPids(pids);
+            foreach (var proc in processes)
+            {
+                var id = (pidInfos.TryGetValue(proc.Pid, out var info) ? info.SessionId : null)
+                    ?? FocusedSessionResolver.ExtractResumeSessionId(proc.CommandLine);
+                if (!string.IsNullOrEmpty(id))
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Relaunch: open-session check failed: {ex.Message}");
+        }
+        return ids;
+    }
+
     private void OfferSessionRestoreOnStartup()
     {
         if (!_appSettings.EnableSessionRestore)
@@ -519,8 +549,17 @@ public partial class MainWindow : Window
 
     private void RelaunchSessions(List<OpenSessionRef> sessions)
     {
+        // Checked now, not when the window opened: after a restart herdr (or
+        // the user) may have reopened some of them in the meantime.
+        var alreadyOpenIds = GetSessionIdsOfRunningClaudeProcesses();
         foreach (var s in sessions)
         {
+            if (alreadyOpenIds.Contains(s.SessionId))
+            {
+                AppLogger.Info($"Relaunch: session {s.SessionId} is already open — skipped");
+                continue;
+            }
+
             try
             {
                 var entry = new QuickLaunchEntry { Name = s.ProjectName, FolderPath = s.FolderPath ?? "" };
