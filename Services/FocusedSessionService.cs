@@ -102,12 +102,18 @@ public static class FocusedSessionService
             var pidInfos = ClaudeSessionPidFileService.ReadForPids(
                 matched.Select(m => m.Pid).ToList());
             Dictionary<int, string>? sessionIdByPid = null;
+            Dictionary<string, string>? liveNameBySessionId = null;
             if (pidInfos.Count > 0)
             {
                 sessionIdByPid = new Dictionary<int, string>(pidInfos.Count);
+                liveNameBySessionId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var kv in pidInfos)
                 {
                     sessionIdByPid[kv.Key] = kv.Value.SessionId;
+                    if (!string.IsNullOrWhiteSpace(kv.Value.Name))
+                    {
+                        liveNameBySessionId[kv.Value.SessionId] = kv.Value.Name;
+                    }
                     AppLogger.Info($"FocusResolve: pidfile pid={kv.Key} -> session={kv.Value.SessionId} name=\"{kv.Value.Name ?? "?"}\"");
                 }
             }
@@ -155,7 +161,7 @@ public static class FocusedSessionService
                 }
             }
 
-            var resolved = FocusedSessionResolver.Resolve(candidates, matched, title, AppLogger.Info, sessionIdByPid);
+            var resolved = FocusedSessionResolver.Resolve(candidates, matched, title, AppLogger.Info, sessionIdByPid, liveNameBySessionId);
             AppLogger.Info(resolved == null
                 ? "FocusResolve: no session matched -> fallback"
                 : $"FocusResolve: RESULT session={resolved.SessionId} ({resolved.CustomName ?? resolved.Slug ?? resolved.ProjectName})");

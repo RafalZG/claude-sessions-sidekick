@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.19] — 2026-11-24
+
+### Added
+- **Reset times in the status line.** Two new blocks in the status line
+  builder: `{5h_reset}` shows when the 5-hour limit resets (`14:30`) and
+  `{7d_reset}` when the weekly limit resets (`Sat 22:00`), in local time.
+  The "With usage limits" preset now shows the weekly reset time in brackets.
+
+### Fixed
+- **Copy reply picked the wrong session after /rename.** With two sessions of
+  one repo open in Windows Terminal, the terminal title shows the name given
+  with /rename, which Sidekick only read for its log and never matched
+  against the title, so the newest session won. The name from Claude Code's
+  own session record now counts when matching the title.
+
 ## [1.0.18] — 2026-11-12
 
 ### Changed

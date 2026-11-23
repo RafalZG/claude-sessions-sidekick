@@ -27,7 +27,8 @@ public static class FocusedSessionResolver
         , IReadOnlyList<FocusedClaudeProcess> claudeProcesses
         , string? windowTitle
         , Action<string>? trace = null
-        , IReadOnlyDictionary<int, string>? sessionIdByPid = null)
+        , IReadOnlyDictionary<int, string>? sessionIdByPid = null
+        , IReadOnlyDictionary<string, string>? liveNameBySessionId = null)
     {
         if (sessions.Count == 0 || claudeProcesses.Count == 0)
         {
@@ -64,7 +65,7 @@ public static class FocusedSessionResolver
         // ALL live in one WindowsTerminal.exe). The window title shows the
         // active tab's title, which usually contains the session's name — use
         // it to pick the one the user actually sees.
-        var byTitle = NarrowByTitle(candidates, windowTitle);
+        var byTitle = NarrowByTitle(candidates, windowTitle, liveNameBySessionId);
         trace?.Invoke(byTitle.Count == candidates.Count
             ? $"FocusResolve: title narrowed nothing ({candidates.Count} candidates stay) -> newest wins"
             : $"FocusResolve: title narrowed {candidates.Count} -> {byTitle.Count}");
@@ -354,32 +355,100 @@ public static class FocusedSessionResolver
     /// </summary>
     internal static List<SessionTokenData> NarrowByTitle(
         List<SessionTokenData> candidates
-        , string? windowTitle)
+        , string? windowTitle
+        , IReadOnlyDictionary<string, string>? liveNameBySessionId = null)
     {
         if (string.IsNullOrWhiteSpace(windowTitle))
         {
             return candidates;
         }
 
+        var byLiveName = NarrowByLiveName(candidates, windowTitle, liveNameBySessionId);
+        if (byLiveName.Count > 0)
+        {
+            return byLiveName;
+        }
+
         var narrowed = candidates
-            .Where(s => TitleMentionsSession(windowTitle, s))
+            .Where(s => TitleMentionsSession(windowTitle, s, LiveNameOf(s, liveNameBySessionId)))
             .ToList();
         if (narrowed.Count > 0)
         {
             return narrowed;
         }
 
-        var byOverlap = NarrowByWordOverlap(candidates, windowTitle);
+        var byOverlap = NarrowByWordOverlap(candidates, windowTitle, liveNameBySessionId);
         return byOverlap;
     }
 
-    private static bool TitleMentionsSession(string windowTitle, SessionTokenData session)
+    // The name from Claude Code's pid file follows /rename, while the slug and
+    // the transcript's name can be older, so the terminal title often shows only this one.
+    private static string? LiveNameOf(
+        SessionTokenData session
+        , IReadOnlyDictionary<string, string>? liveNameBySessionId)
     {
-        var names = new[] { session.CustomName, session.Slug, session.ProjectName };
+        if (liveNameBySessionId == null)
+        {
+            return null;
+        }
+
+        liveNameBySessionId.TryGetValue(session.SessionId, out var liveName);
+        return liveName;
+    }
+
+    // A /rename name in the title is the strongest hint. When several fit
+    // ("dev2" and "dev2 billing fix"), the longest one is the one shown.
+    private static List<SessionTokenData> NarrowByLiveName(
+        List<SessionTokenData> candidates
+        , string windowTitle
+        , IReadOnlyDictionary<string, string>? liveNameBySessionId)
+    {
+        var hits = new List<(SessionTokenData Session, int Length)>();
+        foreach (var candidate in candidates)
+        {
+            var liveName = LiveNameOf(candidate, liveNameBySessionId);
+            if (TitleContainsName(windowTitle, liveName))
+            {
+                var hit = (candidate, liveName!.Trim().Length);
+                hits.Add(hit);
+            }
+        }
+
+        if (hits.Count == 0)
+        {
+            var none = new List<SessionTokenData>();
+            return none;
+        }
+
+        var longest = hits.Max(h => h.Length);
+        var winners = hits
+            .Where(h => h.Length == longest)
+            .Select(h => h.Session)
+            .ToList();
+        return winners;
+    }
+
+    private const int MinTitleNameLength = 3;
+
+    private static bool TitleContainsName(string windowTitle, string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        var trimmed = name.Trim();
+        var contains = trimmed.Length >= MinTitleNameLength
+            && windowTitle.IndexOf(trimmed, StringComparison.OrdinalIgnoreCase) >= 0;
+        return contains;
+    }
+
+    private static bool TitleMentionsSession(string windowTitle, SessionTokenData session, string? liveName)
+    {
+        var names = new[] { liveName, session.CustomName, session.Slug, session.ProjectName };
         foreach (var name in names)
         {
-            if (!string.IsNullOrWhiteSpace(name)
-                && windowTitle.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0)
+            if (TitleContainsName(windowTitle, name))
             {
                 return true;
             }
@@ -395,7 +464,8 @@ public static class FocusedSessionResolver
     /// </summary>
     private static List<SessionTokenData> NarrowByWordOverlap(
         List<SessionTokenData> candidates
-        , string windowTitle)
+        , string windowTitle
+        , IReadOnlyDictionary<string, string>? liveNameBySessionId)
     {
         var titleWords = SplitWords(windowTitle);
         if (titleWords.Count == 0)
@@ -406,10 +476,11 @@ public static class FocusedSessionResolver
         var scored = new List<(SessionTokenData Session, int Score)>();
         foreach (var candidate in candidates)
         {
-            var text = string.Join(
-                " "
-                , new[] { candidate.CustomName, candidate.Slug, candidate.ProjectName, candidate.FirstMessage }
-                    .Where(n => !string.IsNullOrWhiteSpace(n)));
+            var names = new[]
+            {
+                LiveNameOf(candidate, liveNameBySessionId), candidate.CustomName, candidate.Slug, candidate.ProjectName, candidate.FirstMessage,
+            };
+            var text = string.Join(" ", names.Where(n => !string.IsNullOrWhiteSpace(n)));
             var candidateWords = SplitWords(text);
             var score = titleWords.Count(w => candidateWords.Contains(w));
             scored.Add((candidate, score));

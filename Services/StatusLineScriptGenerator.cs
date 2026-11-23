@@ -139,6 +139,15 @@ public static class StatusLineScriptGenerator
             if ($null -ne $data.rate_limits.seven_day.used_percentage) {
                 $d7 = [string][math]::Round([double]$data.rate_limits.seven_day.used_percentage)
             }
+            function Format-ResetTime($epochSeconds, [string]$format) {
+                $seconds = 0.0
+                $parsed = [double]::TryParse([string]$epochSeconds, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$seconds)
+                if (-not $parsed -or -not ($seconds -gt 0 -and $seconds -le 253402300799)) { return '' }
+                $local = [DateTimeOffset]::FromUnixTimeSeconds([long]$seconds).ToLocalTime()
+                return $local.ToString($format, [Globalization.CultureInfo]::InvariantCulture)
+            }
+            $h5reset = Format-ResetTime $data.rate_limits.five_hour.resets_at 'HH:mm'
+            $d7reset = Format-ResetTime $data.rate_limits.seven_day.resets_at 'ddd HH:mm'
 
             # Free-text values come from outside (stdin JSON, .git/HEAD read as
             # a plain file) — strip control characters BEFORE coloring, so a
@@ -177,6 +186,8 @@ public static class StatusLineScriptGenerator
             $ctx = Add-Color $ctx (Get-PctColor $ctx)
             $h5 = Add-Color $h5 (Get-PctColor $h5)
             $d7 = Add-Color $d7 (Get-PctColor $d7)
+            $h5reset = Add-Color $h5reset '{{BlockAnsi("{5h_reset}")}}'
+            $d7reset = Add-Color $d7reset '{{BlockAnsi("{7d_reset}")}}'
 
             $line = '{{baked}}'
             $line = $line.Replace('{project}', $project).Replace('{branch}', $branch)
@@ -184,6 +195,7 @@ public static class StatusLineScriptGenerator
             $line = $line.Replace('{model}', $model).Replace('{ctx}', $ctx)
             $line = $line.Replace('{cost}', $cost).Replace('{lines}', $lines)
             $line = $line.Replace('{version}', $version).Replace('{effort}', $effort)
+            $line = $line.Replace('{5h_reset}', $h5reset).Replace('{7d_reset}', $d7reset)
             $line = $line.Replace('{5h}', $h5).Replace('{7d}', $d7)
             $line = $line -replace '\(\s*\)|\[\s*\]', ''
             $line = ($line -replace '\s{2,}', ' ').Trim()

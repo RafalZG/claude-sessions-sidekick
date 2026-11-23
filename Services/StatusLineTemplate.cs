@@ -31,6 +31,8 @@ public static class StatusLineTemplate
         new("{effort}", "Effort level", "high"),
         new("{5h}", "5-hour limit used (number)", "24"),
         new("{7d}", "Weekly limit used (number)", "41"),
+        new("{5h_reset}", "When the 5-hour limit resets (local time)", "14:30"),
+        new("{7d_reset}", "When the weekly limit resets (day and local time)", "Sat 22:00"),
     ];
 
     public const int MaxTemplateLength = 500;
@@ -50,6 +52,8 @@ public static class StatusLineTemplate
             ["{model}"] = ("35", "#D2A8FF"),
             ["{version}"] = ("90", "#8B949E"),
             ["{effort}"] = ("90", "#8B949E"),
+            ["{5h_reset}"] = ("90", "#8B949E"),
+            ["{7d_reset}"] = ("90", "#8B949E"),
         };
 
     public static readonly IReadOnlyList<string> PercentTokens = ["{ctx}", "{5h}", "{7d}"];
@@ -75,7 +79,7 @@ public static class StatusLineTemplate
     public static readonly IReadOnlyList<(string Name, string Template)> Presets =
     [
         ("Project + branch + model + context", DefaultTemplate),
-        ("With usage limits", "{project} {worktree} ({branch}) [{model}] {ctx}% ctx | 5h {5h}% | 7d {7d}%"),
+        ("With usage limits", "{project} {worktree} ({branch}) [{model}] {ctx}% ctx | 5h {5h}% | 7d {7d}% ({7d_reset})"),
         ("With session cost", "{project} {worktree} ({branch}) [{model}] {ctx}% ctx | {cost} | {lines}"),
     ];
 

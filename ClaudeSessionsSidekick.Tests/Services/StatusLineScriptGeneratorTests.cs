@@ -146,4 +146,77 @@ public class StatusLineScriptGeneratorTests
 
         Assert.Contains("$line = 'don\u2019\u2019t'", script);
     }
+
+    [Fact]
+    public void Generate_ResetBlocks_ShowLocalResetTimes_WhenRunInPowerShell()
+    {
+        // Arrange
+        const long fiveHourReset = 1763913600;
+        const long weeklyReset = 1764367200;
+        var json = "{\"rate_limits\":{\"five_hour\":{\"used_percentage\":24,\"resets_at\":" + fiveHourReset
+            + "},\"seven_day\":{\"used_percentage\":33,\"resets_at\":" + weeklyReset + "}}}";
+        var script = StatusLineScriptGenerator.Generate("5h {5h_reset} | 7d {7d_reset}");
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+        var expectedFiveHour = DateTimeOffset.FromUnixTimeSeconds(fiveHourReset).ToLocalTime().ToString("HH:mm", invariant);
+        var expectedWeekly = DateTimeOffset.FromUnixTimeSeconds(weeklyReset).ToLocalTime().ToString("ddd HH:mm", invariant);
+
+        // Act
+        var output = RunScript(script, json);
+
+        // Assert
+        var plain = System.Text.RegularExpressions.Regex.Replace(output, "\u001b\\[[0-9;]*m", "");
+        Assert.Equal($"5h {expectedFiveHour} | 7d {expectedWeekly}", plain);
+    }
+
+    [Fact]
+    public void Generate_ResetBlocks_StayEmpty_WhenRateLimitsAreMissing()
+    {
+        // Arrange
+        var script = StatusLineScriptGenerator.Generate("[{7d_reset}] end");
+
+        // Act
+        var output = RunScript(script, "{\"model\":{\"display_name\":\"Opus\"}}");
+
+        // Assert
+        Assert.Equal("end", output);
+    }
+
+    private static string RunScript(string script, string stdinJson)
+    {
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"sidekick-statusline-test-{Guid.NewGuid():N}.ps1");
+        var utf8WithBom = new System.Text.UTF8Encoding(true);
+        File.WriteAllText(scriptPath, script, utf8WithBom);
+        try
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo("powershell.exe")
+            {
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+            };
+            startInfo.ArgumentList.Add("-NoProfile");
+            startInfo.ArgumentList.Add("-ExecutionPolicy");
+            startInfo.ArgumentList.Add("Bypass");
+            startInfo.ArgumentList.Add("-File");
+            startInfo.ArgumentList.Add(scriptPath);
+            using var process = System.Diagnostics.Process.Start(startInfo)!;
+            process.StandardInput.Write(stdinJson);
+            process.StandardInput.Close();
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var exited = process.WaitForExit(30000);
+            if (!exited)
+            {
+                process.Kill(true);
+                Assert.Fail("The generated status line script did not finish within 30 s.");
+            }
+            var output = outputTask.GetAwaiter().GetResult();
+            return output;
+        }
+        finally
+        {
+            File.Delete(scriptPath);
+        }
+    }
 }

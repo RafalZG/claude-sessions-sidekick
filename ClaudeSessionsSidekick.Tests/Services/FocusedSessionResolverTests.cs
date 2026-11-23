@@ -317,6 +317,96 @@ public class FocusedSessionResolverTests
         }
 
         [Fact]
+        public void MultipleMatches_PidFileNameInTitle_PicksThatSession()
+        {
+            // Arrange — Mike's log: two sessions in one repo, the terminal title
+            // shows the /rename name that only Claude Code's pid file knows.
+            var renamed = MakeSession("4285c5a2-4290-43d7-a0cb-8df901ed327f",
+                cwd: @"C:\src\Dev2", slug: "have-already-checked-out-wiggly-thompson",
+                projectName: "dev2", minutesAgo: 53);
+            var newer = MakeSession("38b3ce14-980f-4dbc-8cfb-5fca9d07ccfa",
+                cwd: @"C:\src\dev2", projectName: "dev2", minutesAgo: 1);
+            var sessions = new List<SessionTokenData> { renamed, newer };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(27836, "claude --resume 4285c5a2-4290-43d7-a0cb-8df901ed327f", @"C:\src\Dev2\"),
+                new(33328, "claude", @"C:\src\dev2\"),
+            };
+            var sessionIdByPid = new Dictionary<int, string>
+            {
+                [27836] = renamed.SessionId,
+                [33328] = newer.SessionId,
+            };
+            var liveNameBySessionId = new Dictionary<string, string>
+            {
+                [renamed.SessionId] = "stop-idle-mobile-app-instances",
+                [newer.SessionId] = "dev2-5f",
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(
+                sessions, procs, "✳ stop-idle-mobile-app-instances", null, sessionIdByPid, liveNameBySessionId);
+
+            // Assert
+            Assert.Same(renamed, resolved);
+        }
+
+        [Fact]
+        public void MultipleMatches_PidFileNameBeatsProjectNameInTitle()
+        {
+            // Arrange — the /rename name contains the project name both share
+            var renamed = MakeSession("aaaaaaaa-1111-4111-8111-111111111111",
+                cwd: @"C:\src\dev2", projectName: "dev2", minutesAgo: 30);
+            var newer = MakeSession("bbbbbbbb-2222-4222-8222-222222222222",
+                cwd: @"C:\src\dev2", projectName: "dev2", minutesAgo: 1);
+            var sessions = new List<SessionTokenData> { renamed, newer };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "claude", @"C:\src\dev2"),
+                new(200, "claude", @"C:\src\dev2"),
+            };
+            var sessionIdByPid = new Dictionary<int, string>
+            {
+                [100] = renamed.SessionId,
+                [200] = newer.SessionId,
+            };
+            var liveNameBySessionId = new Dictionary<string, string>
+            {
+                [renamed.SessionId] = "dev2 billing fix",
+                [newer.SessionId] = "dev2",
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(
+                sessions, procs, "✳ dev2 billing fix", null, sessionIdByPid, liveNameBySessionId);
+
+            // Assert
+            Assert.Same(renamed, resolved);
+        }
+
+        [Fact]
+        public void MultipleMatches_NameShorterThanThreeLetters_DoesNotMatchTitle()
+        {
+            // Arrange — "ui" sits inside "build", which is no real match
+            var older = MakeSession("aaaaaaaa-1111-4111-8111-111111111111",
+                cwd: @"D:\ui", projectName: "ui", minutesAgo: 30);
+            var newer = MakeSession("bbbbbbbb-2222-4222-8222-222222222222",
+                cwd: @"D:\api", projectName: "api", minutesAgo: 1);
+            var sessions = new List<SessionTokenData> { older, newer };
+            var procs = new List<FocusedClaudeProcess>
+            {
+                new(100, "claude", @"D:\ui"),
+                new(200, "claude", @"D:\api"),
+            };
+
+            // Act
+            var resolved = FocusedSessionResolver.Resolve(sessions, procs, "✳ build fix");
+
+            // Assert
+            Assert.Same(newer, resolved);
+        }
+
+        [Fact]
         public void MultipleMatches_CustomNameInTitleAlsoCounts()
         {
             // Arrange
